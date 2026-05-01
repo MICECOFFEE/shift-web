@@ -119,6 +119,7 @@ table.sg{border-collapse:collapse;min-width:100%;}
 </head>
 <body>
 
+<!-- ログイン画面 -->
 <div id="login-screen">
   <div class="login-card">
     <h1>☕ 100g COFFEEシフト管理</h1>
@@ -131,6 +132,7 @@ table.sg{border-collapse:collapse;min-width:100%;}
   </div>
 </div>
 
+<!-- アプリ本体 -->
 <div id="app-body" style="display:none;">
 <header>
   <h1>100g COFFEEシフト管理 v3</h1>
@@ -295,126 +297,7 @@ table.sg{border-collapse:collapse;min-width:100%;}
 </div>
 </div>
 
-<script type="module">
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
-  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
-import { getFirestore, doc, setDoc, getDoc }
-  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
-
-const firebaseConfig = {
-  apiKey: "AIzaSyCNxDr8wqq-dIfI7ns9mZ6GySQkP0qAN1I",
-  authDomain: "shift-app-920a1.firebaseapp.com",
-  projectId: "shift-app-920a1",
-  storageBucket: "shift-app-920a1.firebasestorage.app",
-  messagingSenderId: "393055910720",
-  appId: "1:393055910720:web:97b30c30b3f3b85ba758a5"
-};
-
-const fbApp = initializeApp(firebaseConfig);
-const auth = getAuth(fbApp);
-const db = getFirestore(fbApp);
-let currentUser = null;
-let saveTimer = null;
-
-document.getElementById('login-btn').addEventListener('click', async () => {
-  document.getElementById('login-loading').style.display = 'block';
-  try {
-    const provider = new GoogleAuthProvider();
-    await signInWithPopup(auth, provider);
-  } catch(e) {
-    document.getElementById('login-loading').style.display = 'none';
-    alert('ログインに失敗しました。\n' + e.message);
-  }
-});
-
-window.doSignOut = async () => {
-  if(confirm('ログアウトしますか？')) await signOut(auth);
-};
-
-onAuthStateChanged(auth, async (user) => {
-  if(user) {
-    currentUser = user;
-    document.getElementById('login-screen').style.display = 'none';
-    document.getElementById('app-body').style.display = 'block';
-    const header = document.querySelector('header');
-    if(header && !document.getElementById('user-bar-added')) {
-      const d = document.createElement('div');
-      d.id = 'user-bar-added';
-      d.style.cssText = 'display:flex;align-items:center;gap:10px;margin-left:auto;';
-      d.innerHTML = `<span style="font-size:12px;opacity:0.85;">${user.displayName}</span><button onclick="doSignOut()" style="padding:4px 12px;border-radius:99px;border:1px solid rgba(255,255,255,0.4);background:transparent;color:white;cursor:pointer;font-size:12px;">ログアウト</button>`;
-      header.appendChild(d);
-    }
-    await loadFromFirestore();
-  } else {
-    currentUser = null;
-    document.getElementById('login-screen').style.display = 'flex';
-    document.getElementById('app-body').style.display = 'none';
-  }
-});
-
-async function loadFromFirestore() {
-  if(!currentUser) return;
-  try {
-    const ref = doc(db, 'users', currentUser.uid, 'data', 'main');
-    const snap = await getDoc(ref);
-    if(snap.exists()) {
-      const d = snap.data();
-      if(d && d.staff && d.staff.length > 0) {
-        try {
-          const nd = normalizeData(JSON.parse(JSON.stringify(d)));
-          staff = nd.staff || [];
-          locs = nd.locs || [];
-          priorities = nd.priorities || {};
-          wishes = nd.wishes || {};
-          candidates = nd.candidates || {};
-          nextSid = Number(nd.nextSid) || 13;
-          nextLid = Number(nd.nextLid) || 29;
-          if(nd.tmonth) document.getElementById('tmonth').value = nd.tmonth;
-          if(nd.lastSchedule && nd.lastAssignments && nd.lastLocDates && nd.lastMonthInfo) {
-            lastSchedule = nd.lastSchedule;
-            lastAssignments = nd.lastAssignments;
-            lastLocDates = nd.lastLocDates;
-            lastMonthInfo = nd.lastMonthInfo;
-          }
-          backupSchedule = nd.backupSchedule || null;
-          backupAssignments = nd.backupAssignments || null;
-          backupLocDates = nd.backupLocDates || null;
-          backupMonthInfo = nd.backupMonthInfo || null;
-          setStatus('復元完了 — スタッフ' + staff.length + '名・場所' + locs.length + '箇所');
-          renderStaff();
-          renderLocs();
-          if(lastSchedule && lastMonthInfo) go('result');
-        } catch(err) {
-          setStatus('データ読み込みエラー: ' + err.message);
-          console.error(err);
-        }
-      } else {
-        setStatus('新規データで開始');
-      }
-    } else {
-      setStatus('新規データで開始');
-    }
-  } catch(e) {
-    console.error('Firestore読み込みエラー:', e);
-    setStatus('データ読み込みに失敗: ' + e.message);
-  }
-}
-
-window._saveToFirestore = async (data) => {
-  if(!currentUser) return;
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(async () => {
-    try {
-      const ref = doc(db, 'users', currentUser.uid, 'data', 'main');
-      await setDoc(ref, data);
-    } catch(e) {
-      console.error('Firestore保存エラー:', e);
-    }
-  }, 800);
-};
-</script>
-
+<!-- アプリ本体のJS（先に読み込む） -->
 <script>
 
 const TABS=['staff','locations','candidates','priority','wishes','result','overview'];
@@ -856,12 +739,6 @@ function normalizeData(d){
 
 function loadAll(){
   setStatus('データ読み込み中...');
-}
-function showSaved(){
-  const el=document.getElementById('save-badge');el.classList.add('show');clearTimeout(saveTimer);
-  saveTimer=setTimeout(()=>el.classList.remove('show'),2000);
-  const shiftSaved=lastSchedule?'・シフト表保存済':'';
-  setStatus('自動保存済み — スタッフ'+staff.length+'名・場所'+locs.length+'箇所'+shiftSaved);
 }
 function clearAll(){
   if(!confirm('すべてリセットしますか？スタッフはデフォルト11名に戻ります。シフト表も消去されます。'))return;
@@ -3176,12 +3053,6 @@ function normalizeData(d){
 function loadAll(){
   setStatus('データ読み込み中...');
 }
-function showSaved(){
-  const el=document.getElementById('save-badge');el.classList.add('show');clearTimeout(saveTimer);
-  saveTimer=setTimeout(()=>el.classList.remove('show'),2000);
-  const shiftSaved=lastSchedule?'・シフト表保存済':'';
-  setStatus('自動保存済み — スタッフ'+staff.length+'名・場所'+locs.length+'箇所'+shiftSaved);
-}
 function clearAll(){
   if(!confirm('すべてリセットしますか？スタッフはデフォルト11名に戻ります。シフト表も消去されます。'))return;
   localStorage.removeItem(LS_KEY);
@@ -4779,6 +4650,132 @@ af();
 
 loadAll();
 
+</script>
+
+<!-- Firebase（アプリJSの後に読み込む） -->
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+import { getFirestore, doc, setDoc, getDoc }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCNxDr8wqq-dIfI7ns9mZ6GySQkP0qAN1I",
+  authDomain: "shift-app-920a1.firebaseapp.com",
+  projectId: "shift-app-920a1",
+  storageBucket: "shift-app-920a1.firebasestorage.app",
+  messagingSenderId: "393055910720",
+  appId: "1:393055910720:web:97b30c30b3f3b85ba758a5"
+};
+
+const fbApp = initializeApp(firebaseConfig);
+const auth = getAuth(fbApp);
+const db = getFirestore(fbApp);
+let currentUser = null;
+let saveTimer = null;
+
+// ログインボタン
+document.getElementById('login-btn').addEventListener('click', async () => {
+  document.getElementById('login-loading').style.display = 'block';
+  try {
+    const provider = new GoogleAuthProvider();
+    await signInWithPopup(auth, provider);
+  } catch(e) {
+    document.getElementById('login-loading').style.display = 'none';
+    alert('ログインに失敗しました。\n' + e.message);
+  }
+});
+
+window.doSignOut = async () => {
+  if(confirm('ログアウトしますか？')) await signOut(auth);
+};
+
+// Firestoreからデータ読み込み
+async function loadFromFirestore() {
+  if(!currentUser) return;
+  try {
+    const ref = doc(db, 'users', currentUser.uid, 'data', 'main');
+    const snap = await getDoc(ref);
+    if(snap.exists()) {
+      const d = snap.data();
+      if(d && d.staff && d.staff.length > 0) {
+        try {
+          const nd = normalizeData(JSON.parse(JSON.stringify(d)));
+          staff = nd.staff || [];
+          locs = nd.locs || [];
+          priorities = nd.priorities || {};
+          wishes = nd.wishes || {};
+          candidates = nd.candidates || {};
+          nextSid = Number(nd.nextSid) || 13;
+          nextLid = Number(nd.nextLid) || 29;
+          if(nd.tmonth) document.getElementById('tmonth').value = nd.tmonth;
+          if(nd.lastSchedule && nd.lastAssignments && nd.lastLocDates && nd.lastMonthInfo) {
+            lastSchedule = nd.lastSchedule;
+            lastAssignments = nd.lastAssignments;
+            lastLocDates = nd.lastLocDates;
+            lastMonthInfo = nd.lastMonthInfo;
+          }
+          backupSchedule = nd.backupSchedule || null;
+          backupAssignments = nd.backupAssignments || null;
+          backupLocDates = nd.backupLocDates || null;
+          backupMonthInfo = nd.backupMonthInfo || null;
+          setStatus('復元完了 — スタッフ' + staff.length + '名・場所' + locs.length + '箇所');
+          renderStaff();
+          renderLocs();
+          if(lastSchedule && lastMonthInfo) go('result');
+        } catch(err) {
+          setStatus('データ読み込みエラー: ' + err.message);
+          console.error(err);
+        }
+      } else {
+        setStatus('新規データで開始');
+      }
+    } else {
+      setStatus('新規データで開始');
+    }
+  } catch(e) {
+    console.error('Firestore読み込みエラー:', e);
+    setStatus('データ読み込みに失敗: ' + e.message);
+  }
+}
+
+// Firestoreへ保存
+window._saveToFirestore = async (data) => {
+  if(!currentUser) return;
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {
+    try {
+      const ref = doc(db, 'users', currentUser.uid, 'data', 'main');
+      await setDoc(ref, data);
+    } catch(e) {
+      console.error('Firestore保存エラー:', e);
+    }
+  }, 800);
+};
+
+// 認証状態の監視
+onAuthStateChanged(auth, async (user) => {
+  if(user) {
+    currentUser = user;
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app-body').style.display = 'block';
+    // ヘッダーにユーザー名・ログアウトボタン追加
+    const header = document.querySelector('header');
+    if(header && !document.getElementById('user-bar-ext')) {
+      const d = document.createElement('div');
+      d.id = 'user-bar-ext';
+      d.style.cssText = 'display:flex;align-items:center;gap:10px;margin-left:auto;';
+      d.innerHTML = `<span style="font-size:12px;opacity:0.85;">${user.displayName}</span><button onclick="doSignOut()" style="padding:4px 12px;border-radius:99px;border:1px solid rgba(255,255,255,0.4);background:transparent;color:white;cursor:pointer;font-size:12px;">ログアウト</button>`;
+      header.appendChild(d);
+    }
+    await loadFromFirestore();
+  } else {
+    currentUser = null;
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('app-body').style.display = 'none';
+  }
+});
 </script>
 
 </body>
