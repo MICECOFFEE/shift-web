@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>移動販売シフト管理</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif;background:#f5f5f0;color:#1a1a1a;}
+#login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,#534AB7,#3C3489);}
+.login-card{background:white;border-radius:16px;padding:48px 40px;text-align:center;max-width:400px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.2);}
+.login-card h1{font-size:22px;font-weight:500;color:#1a1a1a;margin-bottom:8px;}
+.login-card p{font-size:14px;color:#888;margin-bottom:32px;line-height:1.6;}
+.btn-google{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;padding:14px;border-radius:10px;border:1.5px solid #ddd;background:white;cursor:pointer;font-size:15px;font-weight:500;color:#1a1a1a;transition:all 0.2s;}
+.btn-google:hover{background:#f5f5f5;border-color:#bbb;}
+.btn-google img{width:20px;height:20px;}
+.loading{color:#888;font-size:14px;margin-top:16px;display:none;}
+#app-screen{display:none;flex-direction:column;height:100vh;}
+.user-bar{background:#534AB7;color:white;padding:10px 20px;display:flex;align-items:center;justify-content:space-between;font-size:13px;flex-shrink:0;}
+.user-bar span{opacity:0.9;}
+.bar-right{display:flex;align-items:center;gap:12px;}
+.btn-logout{padding:5px 14px;border-radius:99px;border:1px solid rgba(255,255,255,0.4);background:transparent;color:white;cursor:pointer;font-size:12px;}
+.btn-logout:hover{background:rgba(255,255,255,0.15);}
+.save-status{font-size:11px;opacity:0.75;}
+#app-frame{width:100%;flex:1;border:none;}
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <div class="login-card">
+    <h1>🚚 移動販売シフト管理</h1>
+    <p>Googleアカウントでログインすると<br>どのデバイスからでも利用できます</p>
+    <button class="btn-google" onclick="signInWithGoogle()">
+      <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google"/>
+      Googleでログイン
+    </button>
+    <p class="loading" id="loading-msg">ログイン中...</p>
+  </div>
+</div>
+
+<div id="app-screen">
+  <div class="user-bar">
+    <span>🚚 移動販売シフト管理</span>
+    <div class="bar-right">
+      <span class="save-status" id="save-status"></span>
+      <span id="user-name"></span>
+      <button class="btn-logout" onclick="doSignOut()">ログアウト</button>
+    </div>
+  </div>
+  <iframe id="app-frame" src="app.html"></iframe>
+</div>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+import { getFirestore, doc, setDoc, getDoc }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCNxDr8wqq-dIFI7ns9mZ6GySQkP0qAN1I",
+  authDomain: "shift-app-920a1.firebaseapp.com",
+  projectId: "shift-app-920a1",
+  storageBucket: "shift-app-920a1.firebasestorage.app",
+  messagingSenderId: "393055910720",
+  appId: "1:393055910720:web:97b30c30b3f3b85ba758a5"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+let currentUser = null;
+let saveTimer = null;
+let appFrameReady = false;
+let pendingData = null;
+
+// ===== ログイン =====
+window.signInWithGoogle = async () => {
+  document.getElementById('loading-msg').style.display = 'block';
+  try {
+    const provider = new GoogleAuthProvider();
+    await signInWithPopup(auth, provider);
+  } catch(e) {
+    document.getElementById('loading-msg').style.display = 'none';
+    alert('ログインに失敗しました。\n' + e.message);
+  }
+};
+
+window.doSignOut = async () => {
+  if(confirm('ログアウトしますか？')) {
+    await signOut(auth);
+  }
+};
+
+// ===== 認証状態の監視 =====
+onAuthStateChanged(auth, async (user) => {
+  if(user) {
+    currentUser = user;
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app-screen').style.display = 'flex';
+    document.getElementById('user-name').textContent = user.displayName;
+    // Firestoreからデータを読み込む
+    const data = await loadData();
+    pendingData = data;
+    // iframeが準備できていればすぐに送信
+    if(appFrameReady) sendDataToApp(data);
+  } else {
+    currentUser = null;
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('app-screen').style.display = 'none';
+    document.getElementById('loading-msg').style.display = 'none';
+  }
+});
+
+// ===== Firestoreからデータ読み込み =====
+async function loadData() {
+  if(!currentUser) return null;
+  try {
+    const ref = doc(db, 'users', currentUser.uid, 'data', 'main');
+    const snap = await getDoc(ref);
+    if(snap.exists()) return snap.data();
+  } catch(e) {
+    console.error('読み込みエラー:', e);
+  }
+  return null;
+}
+
+// ===== Firestoreへ保存 =====
+async function saveData(data) {
+  if(!currentUser) return;
+  setStatus('保存中...');
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {
+    try {
+      const ref = doc(db, 'users', currentUser.uid, 'data', 'main');
+      await setDoc(ref, data);
+      setStatus('✓ 保存済み');
+      setTimeout(() => setStatus(''), 2000);
+    } catch(e) {
+      console.error('保存エラー:', e);
+      setStatus('⚠ 保存失敗');
+    }
+  }, 800);
+}
+
+function setStatus(msg) {
+  document.getElementById('save-status').textContent = msg;
+}
+
+// ===== iframeとのメッセージ通信 =====
+function sendDataToApp(data) {
+  const frame = document.getElementById('app-frame');
+  frame.contentWindow.postMessage({ type: 'INIT_DATA', payload: data }, '*');
+}
+
+window.addEventListener('message', async (e) => {
+  if(e.data.type === 'APP_READY') {
+    appFrameReady = true;
+    if(pendingData !== undefined) sendDataToApp(pendingData);
+  }
+  if(e.data.type === 'SAVE_DATA') {
+    await saveData(e.data.payload);
+  }
+});
+</script>
+</body>
+</html>
