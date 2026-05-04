@@ -660,39 +660,27 @@ const DEFAULT_STAFF=[
 
 /* ===== ストレージ ===== */
 function saveAll(){
-  try{
-    const data={
-      staff,locs,priorities,wishes,candidates,nextSid,nextLid,
-      tmonth:document.getElementById('tmonth').value,
-      lastSchedule,lastAssignments,lastLocDates,lastMonthInfo,
-      backupSchedule,backupAssignments,backupLocDates,backupMonthInfo
-    };
-    localStorage.setItem(LS_KEY,JSON.stringify(data));
-    showSaved();
-  }catch(e){
-    // ストレージ容量超過の場合はシフト表データを除いて保存を試みる
-    try{
-      const data2={
-        staff,locs,priorities,wishes,candidates,nextSid,nextLid,
-        tmonth:document.getElementById('tmonth').value
-      };
-      localStorage.setItem(LS_KEY,JSON.stringify(data2));
-      showSaved();
-      setStatus('⚠️ データ量超過のためシフト表は保存されていません。「全データ保存」でJSONに書き出してください。');
-    }catch(e2){
-      setStatus('⚠️ 保存失敗。「全データ保存」ボタンでJSONに書き出してください。');
-    }
-  }
+  const data={
+    staff,locs,priorities,wishes,candidates,nextSid,nextLid,
+    tmonth:document.getElementById('tmonth').value,
+    lastSchedule,lastAssignments,lastLocDates,lastMonthInfo,
+    backupSchedule,backupAssignments,backupLocDates,backupMonthInfo
+  };
+  // Firestoreに保存
+  if(window._saveToFirestore) window._saveToFirestore(data);
+  showSaved();
 }
 
 function normalizeData(d){
   // staffのフィールドを数値化
   if(Array.isArray(d.staff)){
-    d.staff=d.staff.map(s=>({
+    d.staff=d.staff.map((s,i)=>({
       id:Number(s.id),name:String(s.name||''),role:s.role||'full',
       maxDays:Number(s.maxDays)||20,maxConsec:Number(s.maxConsec)||5,
       prefDows:Array.isArray(s.prefDows)?s.prefDows.map(Number):[],
-      ngDows:Array.isArray(s.ngDows)?s.ngDows.map(Number):[]
+      ngDows:Array.isArray(s.ngDows)?s.ngDows.map(Number):[],
+      abbr:s.abbr||String(s.name||'').slice(0,2),
+      color:s.color||(STAFF_COLORS?STAFF_COLORS[i%STAFF_COLORS.length]:'#4CAF50')
     }));
   }
   // locsのフィールドを数値化
