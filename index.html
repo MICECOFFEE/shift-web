@@ -757,8 +757,23 @@ window.normalizeData=normalizeData;
 window.renderStaff=function(){renderStaff();};
 window.renderLocs=function(){renderLocs();};
 window.go=function(t){go(t);};
-window._appVars=function(){return{staff,locs,priorities,wishes,candidates,nextSid,nextLid,lastSchedule,lastAssignments,lastLocDates,lastMonthInfo,backupSchedule,backupAssignments,backupLocDates,backupMonthInfo};};
-window._setAppVars=function(v){staff=v.staff;locs=v.locs;priorities=v.priorities;wishes=v.wishes;candidates=v.candidates||{};nextSid=v.nextSid;nextLid=v.nextLid;lastSchedule=v.lastSchedule||null;lastAssignments=v.lastAssignments||null;lastLocDates=v.lastLocDates||null;lastMonthInfo=v.lastMonthInfo||null;backupSchedule=v.backupSchedule||null;backupAssignments=v.backupAssignments||null;backupLocDates=v.backupLocDates||null;backupMonthInfo=v.backupMonthInfo||null;};
+window._setAppVars=function(v){
+  staff=v.staff||[];locs=v.locs||[];priorities=v.priorities||{};
+  wishes=v.wishes||{};candidates=v.candidates||{};
+  nextSid=Number(v.nextSid)||13;nextLid=Number(v.nextLid)||29;
+  lastSchedule=v.lastSchedule||null;lastAssignments=v.lastAssignments||null;
+  lastLocDates=v.lastLocDates||null;lastMonthInfo=v.lastMonthInfo||null;
+  backupSchedule=v.backupSchedule||null;backupAssignments=v.backupAssignments||null;
+  backupLocDates=v.backupLocDates||null;backupMonthInfo=v.backupMonthInfo||null;
+};
+
+function setStatus(m){document.getElementById('storage-status').textContent=m;}
+function showSaved(){
+  const el=document.getElementById('save-badge');el.classList.add('show');clearTimeout(saveTimer);
+  saveTimer=setTimeout(()=>el.classList.remove('show'),2000);
+  const shiftSaved=lastSchedule?'・シフト表保存済':'';
+  setStatus('自動保存済み — スタッフ'+staff.length+'名・場所'+locs.length+'箇所'+shiftSaved);
+}
 function clearAll(){
   if(!confirm('すべてリセットしますか？スタッフはデフォルト11名に戻ります。シフト表も消去されます。'))return;
   localStorage.removeItem(LS_KEY);
