@@ -660,15 +660,29 @@ const DEFAULT_STAFF=[
 
 /* ===== ストレージ ===== */
 function saveAll(){
-  const data={
-    staff,locs,priorities,wishes,candidates,nextSid,nextLid,
-    tmonth:document.getElementById('tmonth').value,
-    lastSchedule,lastAssignments,lastLocDates,lastMonthInfo,
-    backupSchedule,backupAssignments,backupLocDates,backupMonthInfo
-  };
-  // Firestoreに保存
-  if(window._saveToFirestore) window._saveToFirestore(data);
-  showSaved();
+  try{
+    const data={
+      staff,locs,priorities,wishes,candidates,nextSid,nextLid,
+      tmonth:document.getElementById('tmonth').value,
+      lastSchedule,lastAssignments,lastLocDates,lastMonthInfo,
+      backupSchedule,backupAssignments,backupLocDates,backupMonthInfo
+    };
+    if(window._saveToFirestore) window._saveToFirestore(data);
+    showSaved();
+  }catch(e){
+    // ストレージ容量超過の場合はシフト表データを除いて保存を試みる
+    try{
+      const data2={
+        staff,locs,priorities,wishes,candidates,nextSid,nextLid,
+        tmonth:document.getElementById('tmonth').value
+      };
+      localStorage.setItem(LS_KEY,JSON.stringify(data2));
+      showSaved();
+      setStatus('⚠️ データ量超過のためシフト表は保存されていません。「全データ保存」でJSONに書き出してください。');
+    }catch(e2){
+      setStatus('⚠️ 保存失敗。「全データ保存」ボタンでJSONに書き出してください。');
+    }
+  }
 }
 
 function normalizeData(d){
@@ -680,7 +694,8 @@ function normalizeData(d){
       prefDows:Array.isArray(s.prefDows)?s.prefDows.map(Number):[],
       ngDows:Array.isArray(s.ngDows)?s.ngDows.map(Number):[],
       abbr:s.abbr||String(s.name||'').slice(0,2),
-      color:s.color||(STAFF_COLORS?STAFF_COLORS[i%STAFF_COLORS.length]:'#4CAF50')
+      color:s.color||(typeof STAFF_COLORS!=='undefined'?STAFF_COLORS[i%STAFF_COLORS.length]:'#4CAF50'),
+      carNo:s.carNo?Number(s.carNo):null
     }));
   }
   // locsのフィールドを数値化
@@ -1140,20 +1155,30 @@ function renderStaff(){
     const chips=DOW.map((d,i)=>`<div class="dow-chip ${s.prefDows.includes(i)?'pref':s.ngDows.includes(i)?'ng':''}" onclick="toggleDow(${s.id},${i})">${d}</div>`).join('');
     const ab=staffAbbr(s);
     const col=s.color||STAFF_COLORS[0];
+    const carNo=s.carNo||'';
     return`<div><div class="item-row">
       <div class="av ${avCls(s.role)}" style="background:${col}20;color:${col};">${ab}</div>
       <span style="font-size:13px;font-weight:500;min-width:84px;">${s.name}</span>
       <span class="badge ${bCls(s.role)}">${roleLabel(s.role)}</span>
       <span class="muted">最大${s.maxDays}日</span><span class="muted">連続${s.maxConsec}日</span>
+      ${carNo?`<span style="font-size:11px;background:#E8F4FD;color:#1565C0;padding:2px 8px;border-radius:99px;">${carNo}号車</span>`:''}
       <span class="expand-toggle" onclick="toggleExpand(${s.id})">詳細 ▾</span>
     </div>
     <div class="staff-expand" id="expand-${s.id}">
       <div class="row" style="margin-bottom:10px;gap:10px;">
         <span class="muted">略称：</span>
-        <input type="text" value="${ab}" maxlength="4" style="width:68px;" placeholder="2-4字" onchange="updateStaff(${s.id},'abbr',this.value);_renderStaff();document.getElementById('expand-'+${s.id}).classList.add('open');"/>
+        <input type="text" value="${ab}" maxlength="4" style="width:68px;" placeholder="2-4字" onchange="updateStaff(${s.id},'abbr',this.value);renderStaff();document.getElementById('expand-${s.id}').classList.add('open');"/>
         <span class="muted">カレンダー色：</span>
-        <input type="color" value="${col}" style="width:38px;height:32px;padding:1px;border-radius:6px;border:1px solid #ddd;cursor:pointer;" onchange="updateStaff(${s.id},'color',this.value);_renderStaff();document.getElementById('expand-'+${s.id}).classList.add('open');"/>
+        <input type="color" value="${col}" style="width:38px;height:32px;padding:1px;border-radius:6px;border:1px solid #ddd;cursor:pointer;" onchange="updateStaff(${s.id},'color',this.value);renderStaff();document.getElementById('expand-${s.id}').classList.add('open');"/>
         <div style="width:24px;height:24px;border-radius:4px;background:${col};"></div>
+      </div>
+      <div class="row" style="margin-bottom:10px;gap:10px;">
+        <span class="muted">デフォルト号車：</span>
+        <select onchange="updateStaff(${s.id},'carNo',this.value?Number(this.value):null)" style="padding:4px 8px;border-radius:6px;border:1px solid #ddd;">
+          <option value="">未設定</option>
+          ${[1,2,3,4,5,6,7,8].map(n=>`<option value="${n}" ${carNo===n?'selected':''}>${n}号車</option>`).join('')}
+        </select>
+        <span class="muted" style="font-size:11px;">コーヒー管理アプリとの連携に使用</span>
       </div>
       <div class="muted" style="margin-bottom:8px;">クリックで切替：<span style="background:#E1F5EE;color:#085041;padding:1px 6px;border-radius:4px;font-size:11px;">優先</span> → <span style="background:#FCEBEB;color:#A32D2D;padding:1px 6px;border-radius:4px;font-size:11px;">NG</span> → 通常</div>
       <div class="dow-chips" style="margin-bottom:10px;">${chips}</div>
@@ -1409,11 +1434,12 @@ function renderResult(keepScroll){
     return sum+(locDates[l.id]||[]).filter(d=>{const sid=(assignments[l.id]||{})[d];return sid&&sid>0;}).length;
   },0);
 
-  // スタッフ別：略称・色で表示
+  // スタッフ別：略称・色・号車で表示
   const staffRows=staff.map(s=>{
     const sched=schedule[s.id]||{};
     const cnt=Object.values(sched).filter(v=>v).length;
     const col=s.color||'#4CAF50';
+    const carNo=s.carNo||null;
     const cells=Array.from({length:days},(_,i)=>{
       const d=i+1,v=sched[d];
       if(v)return`<td class="c-work" style="cursor:pointer;" onclick="clickStaffCell(${s.id},${d},this,event)" title="${v} / Shift+クリックで範囲選択">${locAbbrByName(v)}</td>`;
@@ -1424,6 +1450,7 @@ function renderResult(keepScroll){
         <div style="display:flex;align-items:center;gap:4px;">
           <div style="width:10px;height:10px;border-radius:2px;background:${col};flex-shrink:0;"></div>
           ${s.name}
+          ${carNo?`<span style="font-size:10px;background:#E8F4FD;color:#1565C0;padding:1px 5px;border-radius:99px;">${carNo}号車</span>`:''}
         </div>
       </td>
       ${cells}<td style="font-weight:500;">${cnt}</td></tr>`;
@@ -1496,6 +1523,7 @@ function renderResult(keepScroll){
       <button class="btn btn-green" onclick="downloadViewer()">閲覧用HTMLを出力</button>
       <button class="btn btn-outline" onclick="dlShiftCSV()">シフト表をCSV書き出し</button>
       <button class="btn btn-teal" onclick="printShift()">印刷</button>
+      <button class="btn" style="background:#1565C0;color:white;border-color:#1565C0;" onclick="shareShiftToCoffeeApp()">☕ コーヒー管理に共有</button>
       <button class="btn" onclick="document.getElementById('shift-upload-area').style.display=document.getElementById('shift-upload-area').style.display==='none'?'block':'none'">CSVアップロード</button>
     </div>
     <div id="shift-upload-area" style="display:none;margin-top:12px;">
@@ -2102,6 +2130,63 @@ th{background:#f5f5f0;font-weight:500;}
   w.onload=()=>{w.print();};
 }
 
+/* ===== コーヒー管理アプリへのシフト共有 ===== */
+function shareShiftToCoffeeApp(){
+  if(!lastSchedule||!lastMonthInfo){
+    alert('先にシフトを生成してください');return;
+  }
+  const{days,y,m}=lastMonthInfo;
+  const assignments=lastAssignments||{};
+  const locDates=lastLocDates||{};
+
+  // 号車設定のあるスタッフのみ対象
+  const staffWithCar=staff.filter(s=>s.carNo);
+  if(staffWithCar.length===0){
+    alert('号車が設定されているスタッフがいません。\nスタッフタブの「詳細▾」からデフォルト号車を設定してください。');
+    return;
+  }
+
+  // スケジュールデータを生成
+  // {date: YYYY-MM-DD, carNo: 号車番号, location: 場所名}
+  const scheduleData=[];
+  for(let d=1;d<=days;d++){
+    const dateStr=`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    // 場所ごとに担当スタッフを確認
+    locs.forEach(l=>{
+      if(!(locDates[l.id]||[]).includes(d))return;
+      const sid=(assignments[l.id]||{})[d];
+      if(!sid||sid<=0)return;
+      const s=staff.find(x=>x.id===sid);
+      if(!s||!s.carNo)return;
+      scheduleData.push({
+        date:dateStr,
+        carNo:s.carNo,
+        storeId:`s${s.carNo}`,
+        location:l.name,
+        staffId:s.id,
+        staffName:s.name
+      });
+    });
+  }
+
+  if(scheduleData.length===0){
+    alert('共有できるスケジュールがありません。\n号車が設定されたスタッフの出勤データが必要です。');
+    return;
+  }
+
+  // FirestoreのshiftSchedulesコレクションに保存
+  if(window._shareShiftToFirestore){
+    window._shareShiftToFirestore({
+      month:`${y}-${String(m).padStart(2,'0')}`,
+      schedules:scheduleData,
+      updatedAt:new Date().toISOString()
+    });
+    showEditMsg(`☕ ${scheduleData.length}件のスケジュールをコーヒー管理アプリに共有しました`);
+  }else{
+    alert('Firebase未接続のため共有できません。\nWebアプリ版でご利用ください。');
+  }
+}
+
 function showEditMsg(msg){
   setTimeout(()=>{
     const el=document.getElementById('edit-msg');
@@ -2343,10 +2428,8 @@ af();
   const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`shift_${y}${String(m).padStart(2,'0')}_viewer.html`;a.click();URL.revokeObjectURL(a.href);
 }
 
-// Firebaseから呼び出せるようwindowに登録
 window.normalizeData = normalizeData;
 window.renderStaff = renderStaff;
-window._renderStaff = renderStaff;
 window.renderLocs = renderLocs;
 window.go = go;
 window._setAppVars = function(v){
@@ -2435,25 +2518,14 @@ async function loadFromFirestore() {
   }
 }
 
-window._shareShiftToFirestore = async (shiftData) => {
-  if(!currentUser) return;
-  try {
-    const ref = doc(db, 'shift_schedules', currentUser.uid, 'data', shiftData.month);
-    await setDoc(ref, shiftData);
-    console.log('シフトデータ共有完了:', shiftData.month, shiftData.schedules.length, '件');
-  } catch(e) {
-    console.error('シフト共有エラー:', e);
-    alert('共有に失敗しました: ' + e.message);
-  }
-};
-
 window._saveToFirestore = async (data) => {
   if(!currentUser) return;
   clearTimeout(saveTimer);
   saveTimer = setTimeout(async () => {
     try {
       const ref = doc(db, 'users', currentUser.uid, 'data', 'main');
-      await setDoc(ref, data);
+      const cleanData = JSON.parse(JSON.stringify(data, (key, val) => val === undefined ? null : val));
+      await setDoc(ref, cleanData);
       fbSetStatus('✓ 保存済み');
       setTimeout(()=>fbSetStatus(''),2000);
     } catch(e) {
@@ -2461,6 +2533,19 @@ window._saveToFirestore = async (data) => {
       fbSetStatus('⚠ 保存失敗');
     }
   }, 800);
+};
+
+window._shareShiftToFirestore = async (shiftData) => {
+  if(!currentUser) return;
+  try {
+    const ref = doc(db, 'shift_schedules', currentUser.uid, 'data', shiftData.month);
+    const cleanData = JSON.parse(JSON.stringify(shiftData, (key, val) => val === undefined ? null : val));
+    await setDoc(ref, cleanData);
+    console.log('シフトデータ共有完了:', shiftData.month, shiftData.schedules.length, '件');
+  } catch(e) {
+    console.error('シフト共有エラー:', e);
+    alert('共有に失敗しました: ' + e.message);
+  }
 };
 
 onAuthStateChanged(auth, async (user) => {
