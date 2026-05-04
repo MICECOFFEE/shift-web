@@ -2231,6 +2231,11 @@ function openCarSelect(e,sid,day){
 }
 
 function setCarOverride(sid,day,carNo){
+  // スクロール位置を保存
+  const wrap=document.getElementById('staff-table-wrap');
+  const scrollLeft=wrap?wrap.scrollLeft:0;
+  const scrollTop=wrap?wrap.scrollTop:0;
+
   if(!carDailyOverride[sid])carDailyOverride[sid]={};
   if(carNo===null){
     delete carDailyOverride[sid][day];
@@ -2241,6 +2246,12 @@ function setCarOverride(sid,day,carNo){
   if(panel)panel.remove();
   saveAll();
   go('result');
+
+  // スクロール位置を復元
+  setTimeout(()=>{
+    const w=document.getElementById('staff-table-wrap');
+    if(w){w.scrollLeft=scrollLeft;w.scrollTop=scrollTop;}
+  },50);
 }
 
 function showEditMsg(msg){
