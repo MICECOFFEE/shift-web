@@ -2435,6 +2435,18 @@ async function loadFromFirestore() {
   }
 }
 
+window._shareShiftToFirestore = async (shiftData) => {
+  if(!currentUser) return;
+  try {
+    const ref = doc(db, 'shift_schedules', currentUser.uid, 'data', shiftData.month);
+    await setDoc(ref, shiftData);
+    console.log('シフトデータ共有完了:', shiftData.month, shiftData.schedules.length, '件');
+  } catch(e) {
+    console.error('シフト共有エラー:', e);
+    alert('共有に失敗しました: ' + e.message);
+  }
+};
+
 window._saveToFirestore = async (data) => {
   if(!currentUser) return;
   clearTimeout(saveTimer);
