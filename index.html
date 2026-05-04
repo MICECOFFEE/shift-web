@@ -1269,6 +1269,11 @@ function normalizeData(d){
 function loadAll(){
   var el=document.getElementById('storage-status');if(el)el.textContent='データ読み込み中...';
 }
+// Firebaseモジュールからアクセスできるようwindowに登録
+window.normalizeData=normalizeData;
+window.renderStaff=renderStaff;
+window.renderLocs=renderLocs;
+window.go=go;
 function clearAll(){
   if(!confirm('すべてリセットしますか？スタッフはデフォルト11名に戻ります。シフト表も消去されます。'))return;
   localStorage.removeItem(LS_KEY);
@@ -3555,6 +3560,11 @@ function normalizeData(d){
 function loadAll(){
   var el=document.getElementById('storage-status');if(el)el.textContent='データ読み込み中...';
 }
+// Firebaseモジュールからアクセスできるようwindowに登録
+window.normalizeData=normalizeData;
+window.renderStaff=renderStaff;
+window.renderLocs=renderLocs;
+window.go=go;
 function clearAll(){
   if(!confirm('すべてリセットしますか？スタッフはデフォルト11名に戻ります。シフト表も消去されます。'))return;
   localStorage.removeItem(LS_KEY);
@@ -5237,29 +5247,29 @@ async function loadFromFirestore() {
       const d = snap.data();
       if(d && d.staff && d.staff.length > 0) {
         try {
-          const nd = normalizeData(JSON.parse(JSON.stringify(d)));
-          staff = nd.staff || [];
-          locs = nd.locs || [];
-          priorities = nd.priorities || {};
-          wishes = nd.wishes || {};
-          candidates = nd.candidates || {};
-          nextSid = Number(nd.nextSid) || 13;
-          nextLid = Number(nd.nextLid) || 29;
+          const nd = window.normalizeData(JSON.parse(JSON.stringify(d)));
+          window.staff = nd.staff || [];
+          window.locs = nd.locs || [];
+          window.priorities = nd.priorities || {};
+          window.wishes = nd.wishes || {};
+          window.candidates = nd.candidates || {};
+          window.nextSid = Number(nd.nextSid) || 13;
+          window.nextLid = Number(nd.nextLid) || 29;
           if(nd.tmonth) document.getElementById('tmonth').value = nd.tmonth;
           if(nd.lastSchedule && nd.lastAssignments && nd.lastLocDates && nd.lastMonthInfo) {
-            lastSchedule = nd.lastSchedule;
-            lastAssignments = nd.lastAssignments;
-            lastLocDates = nd.lastLocDates;
-            lastMonthInfo = nd.lastMonthInfo;
+            window.lastSchedule = nd.lastSchedule;
+            window.lastAssignments = nd.lastAssignments;
+            window.lastLocDates = nd.lastLocDates;
+            window.lastMonthInfo = nd.lastMonthInfo;
           }
-          backupSchedule = nd.backupSchedule || null;
-          backupAssignments = nd.backupAssignments || null;
-          backupLocDates = nd.backupLocDates || null;
-          backupMonthInfo = nd.backupMonthInfo || null;
-          fbSetStatus('復元完了 — スタッフ' + staff.length + '名・場所' + locs.length + '箇所');
-          renderStaff();
-          renderLocs();
-          if(lastSchedule && lastMonthInfo) go('result');
+          window.backupSchedule = nd.backupSchedule || null;
+          window.backupAssignments = nd.backupAssignments || null;
+          window.backupLocDates = nd.backupLocDates || null;
+          window.backupMonthInfo = nd.backupMonthInfo || null;
+          fbSetStatus('復元完了 — スタッフ' + nd.staff.length + '名・場所' + nd.locs.length + '箇所');
+          window.renderStaff();
+          window.renderLocs();
+          if(nd.lastSchedule && nd.lastMonthInfo) window.go('result');
         } catch(err) {
           fbSetStatus('データ読み込みエラー: ' + err.message);
           console.error(err);
