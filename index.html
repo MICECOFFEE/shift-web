@@ -757,9 +757,7 @@ function normalizeData(d){
   return d;
 }
 
-function loadAll(){
-  setStatus('データ読み込み中...');
-}
+function loadAll(){setStatus("データ読込完了");}
 
 function setStatus(m){document.getElementById('storage-status').textContent=m;}
 function showSaved(){
@@ -2168,11 +2166,16 @@ function shareShiftToCoffeeApp(){
       const sid=(assignments[l.id]||{})[d];
       if(!sid||sid<=0)return;
       const s=staff.find(x=>x.id===sid);
-      if(!s||!s.carNo)return;
+      if(!s)return;
+      // 日ごとオーバーライドがあればそちら、なければデフォルト号車
+      const car=(carDailyOverride[s.id]||{})[d]!==undefined
+        ?(carDailyOverride[s.id]||{})[d]
+        :s.carNo;
+      if(!car)return;
       scheduleData.push({
         date:dateStr,
-        carNo:s.carNo,
-        storeId:`s${s.carNo}`,
+        carNo:car,
+        storeId:`s${car}`,
         location:l.name,
         staffId:s.id,
         staffName:s.name
