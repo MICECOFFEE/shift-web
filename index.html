@@ -106,6 +106,48 @@ table.sg{border-collapse:collapse;min-width:100%;}
 .cal-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:#666;margin-top:8px;}
 .leg{display:flex;align-items:center;gap:5px;}
 .leg-dot{width:14px;height:14px;border-radius:4px;}
+
+/* ===== 月次更新・過去シフト・ポスター 追加スタイル ===== */
+#btn-monthly-update{background:linear-gradient(135deg,#0F6E56,#1D9E75);color:white;border:none;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;width:100%;margin:10px 0;box-shadow:0 3px 10px rgba(15,110,86,0.3);transition:all 0.2s;font-family:inherit;}
+#btn-monthly-update:hover{transform:translateY(-1px);box-shadow:0 5px 14px rgba(15,110,86,0.4);}
+.section-reset-btn{background:transparent;border:1.5px solid #dc3545;color:#dc3545;padding:5px 12px;border-radius:6px;font-size:12px;cursor:pointer;transition:all 0.2s;font-family:inherit;}
+.section-reset-btn:hover{background:#dc3545;color:white;}
+#archive-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9000;align-items:center;justify-content:center;}
+#archive-modal.open{display:flex;}
+#archive-modal-inner{background:white;border-radius:14px;padding:28px;max-width:360px;width:90%;text-align:center;box-shadow:0 8px 30px rgba(0,0,0,0.2);}
+#archive-modal-inner h3{color:#0F6E56;margin:0 0 12px;font-size:18px;}
+#archive-modal-inner p{color:#555;margin-bottom:20px;font-size:14px;line-height:1.7;}
+.archive-modal-btns{display:flex;gap:10px;}
+.archive-modal-btns button{flex:1;padding:10px;border-radius:8px;border:none;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;}
+#archive-modal-cancel{background:#eee;color:#333;}
+#archive-modal-confirm{background:#0F6E56;color:white;}
+/* 過去シフトタブ */
+#past-shift-panel{background:white;border-radius:10px;padding:16px 18px;margin-bottom:14px;border:0.5px solid #e5e5e0;}
+#past-month-select{width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;margin-bottom:12px;font-family:inherit;}
+#past-month-select:focus{outline:none;border-color:#534AB7;}
+#past-shift-display table{border-collapse:collapse;width:100%;}
+#past-shift-display th{background:#f5f5f0;font-size:12px;color:#666;padding:6px 8px;border:0.5px solid #e5e5e0;text-align:left;}
+#past-shift-display td{padding:5px 8px;border:0.5px solid #e5e5e0;font-size:12px;}
+#past-shift-display tr:nth-child(even) td{background:#fafaf8;}
+/* ポスタータブ */
+#poster-panel{background:white;border-radius:10px;padding:16px 18px;margin-bottom:14px;border:0.5px solid #e5e5e0;}
+.poster-form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
+.poster-form-row label,.poster-form-label{font-size:12px;color:#666;display:block;margin-bottom:4px;}
+.poster-form-row input,.poster-form-row select,.poster-form-row textarea{width:100%;padding:7px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:inherit;box-sizing:border-box;}
+.poster-form-row textarea{height:66px;resize:vertical;}
+.poster-full-row{margin-bottom:10px;}
+.poster-full-row label{font-size:12px;color:#666;display:block;margin-bottom:4px;}
+.poster-full-row input,.poster-full-row textarea{width:100%;padding:7px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:inherit;box-sizing:border-box;}
+.poster-full-row textarea{height:66px;resize:vertical;}
+#poster-img-drop{border:2px dashed #ddd;border-radius:10px;padding:16px;text-align:center;cursor:pointer;transition:all 0.2s;margin-bottom:12px;}
+#poster-img-drop:hover{border-color:#534AB7;background:#EEEDFE;}
+.poster-btn-row{display:flex;gap:10px;margin-top:12px;margin-bottom:16px;}
+.poster-btn-row button{flex:1;padding:9px;border-radius:8px;border:none;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:all 0.2s;}
+#btn-poster-preview{background:#534AB7;color:white;}
+#btn-poster-download{background:#0F6E56;color:white;}
+.poster-btn-row button:hover{opacity:0.85;}
+#poster-preview-wrap{border:1px solid #e5e5e0;border-radius:8px;overflow:hidden;background:white;max-width:380px;margin:0 auto;display:block;}
+#poster-canvas{width:100%;height:auto;display:block;}
 </style>
 <style>
 #login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,#534AB7,#3C3489);position:fixed;inset:0;z-index:9999;}
@@ -139,6 +181,7 @@ table.sg{border-collapse:collapse;min-width:100%;}
   <button class="btn btn-sm" style="background:#BA7517;color:white;border-color:#BA7517;" onclick="document.getElementById('import-json-file').click()" title="JSONファイルからデータを復元します">全データ復元</button>
   <input type="file" id="import-json-file" accept=".json" style="display:none;" onchange="importJSON(event)"/>
   <button class="btn btn-sm" style="background:rgba(255,255,255,0.15);color:white;border-color:rgba(255,255,255,0.3);" onclick="clearAll()">リセット</button>
+  <button class="btn btn-sm" style="background:#F59E0B;color:white;border-color:#F59E0B;font-weight:700;" onclick="openArchiveModal()" title="現月シフト・希望休をアーカイブし翌月準備">📅 月次更新</button>
 </header>
 <div class="main">
   <div class="storage-bar">
@@ -154,6 +197,8 @@ table.sg{border-collapse:collapse;min-width:100%;}
       <div class="tab" onclick="go('wishes')">希望休</div>
       <div class="tab" onclick="go('result')">シフト表</div>
       <div class="tab" onclick="go('overview')">月間カレンダー</div>
+      <div class="tab" onclick="go('past')">📁 過去シフト</div>
+      <div class="tab" onclick="go('poster')">🖼️ ポスター</div>
     </div>
   </div>
   <div style="background:white;border-radius:0 0 10px 10px;border:0.5px solid #e5e5e0;border-top:none;padding:16px;margin-bottom:8px;">
@@ -263,7 +308,10 @@ table.sg{border-collapse:collapse;min-width:100%;}
     <!-- 希望休 -->
     <div id="p-wishes" class="panel">
       <div class="card">
-        <div class="sec-title">希望休・希望出勤</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <div class="sec-title" style="margin-bottom:0;">希望休・希望出勤</div>
+          <button class="section-reset-btn" onclick="resetWishes()">🗑 希望休リセット</button>
+        </div>
         <p class="muted" style="margin-bottom:10px;">タップで切替：<span style="background:#FCEBEB;color:#A32D2D;padding:1px 6px;border-radius:4px;font-size:11px;">✕</span> 希望休　<span style="background:#E1F5EE;color:#085041;padding:1px 6px;border-radius:4px;font-size:11px;">◎</span> 希望出勤　／　<span style="font-size:11px;color:#534AB7;">Shift+クリックで範囲一括設定</span></p>
         <div id="wish-list"></div>
       </div>
@@ -271,6 +319,10 @@ table.sg{border-collapse:collapse;min-width:100%;}
 
     <!-- シフト表 -->
     <div id="p-result" class="panel">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <span></span>
+        <button class="section-reset-btn" onclick="resetShiftTable()">🗑 シフト表リセット</button>
+      </div>
       <div id="result-area">
         <div style="text-align:center;padding:3rem;color:#888;">
           <p style="margin-bottom:1rem;">設定が完了したらシフトを自動生成できます</p>
@@ -287,6 +339,80 @@ table.sg{border-collapse:collapse;min-width:100%;}
         </div>
       </div>
     </div>
+
+    <!-- 過去シフト -->
+    <div id="p-past" class="panel">
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <div class="sec-title" style="margin-bottom:0;">📁 過去のシフト閲覧</div>
+        </div>
+        <label style="font-size:12px;color:#666;display:block;margin-bottom:6px;">アーカイブされた月を選択</label>
+        <select id="past-month-select" onchange="displayPastShift(this.value)">
+          <option value="">── 月を選んでください ──</option>
+        </select>
+        <div id="past-shift-display">
+          <p class="muted" style="text-align:center;padding:20px;">月を選択するとシフトが表示されます</p>
+        </div>
+        <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-outline btn-sm" onclick="exportPastShiftCSV()">📥 CSVで保存</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ポスター -->
+    <div id="p-poster" class="panel">
+      <div class="card">
+        <div class="sec-title" style="margin-bottom:14px;">🖼️ 出店ポスター作成（A4）</div>
+
+        <div id="poster-img-drop" onclick="document.getElementById('poster-img-file').click()">
+          <input type="file" id="poster-img-file" accept="image/*" style="display:none;" onchange="posterLoadImage(this)"/>
+          <div style="font-size:22px;margin-bottom:6px;">📷</div>
+          <div style="font-size:13px;color:#666;margin-bottom:2px;">インスタグラム画像を選択（クリック）</div>
+          <div class="muted" id="poster-img-name">画像を選ぶとポスターに使用されます</div>
+        </div>
+
+        <div class="poster-form-row">
+          <div><label class="poster-form-label">ブランド名</label><input type="text" id="poster-brand" value="100g COFFEE" placeholder="100g COFFEE"/></div>
+          <div><label class="poster-form-label">サブタイトル</label><input type="text" id="poster-subtitle" value="移動販売コーヒー" placeholder="移動販売コーヒー"/></div>
+        </div>
+        <div class="poster-form-row">
+          <div><label class="poster-form-label">出店日・期間</label><input type="text" id="poster-date" placeholder="6月 毎週土・日"/></div>
+          <div><label class="poster-form-label">営業時間</label><input type="text" id="poster-time" placeholder="10:00〜18:00"/></div>
+        </div>
+        <div class="poster-form-row">
+          <div><label class="poster-form-label">場所・エリア</label><input type="text" id="poster-location" placeholder="烏丸錦小路"/></div>
+          <div><label class="poster-form-label">Instagramハンドル</label><input type="text" id="poster-instagram" placeholder="@100g_coffee"/></div>
+        </div>
+        <div class="poster-full-row">
+          <label class="poster-form-label">キャッチコピー・説明文</label>
+          <textarea id="poster-copy" placeholder="丁寧に淹れた一杯をお届けします。&#10;コーヒーで、あなたの一日を豊かに。"></textarea>
+        </div>
+        <div class="poster-form-row">
+          <div><label class="poster-form-label">テーマカラー</label><input type="color" id="poster-color1" value="#534AB7" style="height:38px;width:100%;padding:2px 4px;border:1px solid #ddd;border-radius:8px;"/></div>
+          <div><label class="poster-form-label">アクセントカラー</label><input type="color" id="poster-color2" value="#1D9E75" style="height:38px;width:100%;padding:2px 4px;border:1px solid #ddd;border-radius:8px;"/></div>
+        </div>
+
+        <div class="poster-btn-row">
+          <button id="btn-poster-preview" onclick="renderPoster()">👁 プレビュー生成</button>
+          <button id="btn-poster-download" onclick="downloadPoster()">💾 PNG保存（A4）</button>
+        </div>
+        <div id="poster-preview-wrap" style="display:none;">
+          <canvas id="poster-canvas"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 月次更新確認モーダル -->
+  <div id="archive-modal">
+    <div id="archive-modal-inner">
+      <h3>📅 月次更新</h3>
+      <p>現在のシフト・希望休データをアーカイブ保存して、翌月の準備を開始します。<br><strong>希望休とシフト表はリセット</strong>されます。<br>よろしいですか？</p>
+      <div class="archive-modal-btns">
+        <button id="archive-modal-cancel" onclick="closeArchiveModal()">キャンセル</button>
+        <button id="archive-modal-confirm" onclick="executeMonthlyUpdate()">実行する</button>
+      </div>
+    </div>
   </div>
   <div class="nav-row">
     <button class="btn" onclick="prevTab()">← 戻る</button>
@@ -297,7 +423,7 @@ table.sg{border-collapse:collapse;min-width:100%;}
 
 <script>
 
-const TABS=['staff','locations','candidates','priority','wishes','result','overview'];
+const TABS=['staff','locations','candidates','priority','wishes','result','overview','past','poster'];
 const DOW=['日','月','火','水','木','金','土'];
 const DOW_MAP={日:0,月:1,火:2,水:3,木:4,金:5,土:6};
 const LS_KEY='shift_app_v1';
@@ -1124,7 +1250,8 @@ function go(name){
   document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',i===curTab));
   document.querySelectorAll('.panel').forEach((p,i)=>p.classList.toggle('active',i===curTab));
   document.getElementById('nbtn').textContent='次へ →';
-  document.getElementById('nbtn').style.display=(curTab===5||curTab===6)?'none':'inline-block';
+  const hideNext=['result','overview','past','poster'];
+  document.getElementById('nbtn').style.display=hideNext.includes(name)?'none':'inline-block';
   if(name==='staff')renderStaff();
   if(name==='locations')renderLocs();
   if(name==='candidates')renderCandidates();
@@ -1145,6 +1272,7 @@ function go(name){
       renderOverview();
     }
   }
+  if(name==='past')loadArchiveList();
 }
 function nextTab(){if(curTab>=TABS.length-1)return;go(TABS[curTab+1]);}
 function prevTab(){if(curTab===0)return;go(TABS[curTab-1]);}
@@ -2509,7 +2637,356 @@ window.normalizeData = normalizeData;
 window.renderStaff = renderStaff;
 window.renderLocs = renderLocs;
 window.go = go;
-window._setAppVars = function(v){
+
+/* ============================================================
+   月次更新・過去シフト閲覧・リセット・ポスター作成
+   ============================================================ */
+
+/* --- 月次更新モーダル --- */
+function openArchiveModal(){
+  document.getElementById('archive-modal').classList.add('open');
+}
+function closeArchiveModal(){
+  document.getElementById('archive-modal').classList.remove('open');
+}
+
+/* --- 月次更新実行 --- */
+async function executeMonthlyUpdate(){
+  closeArchiveModal();
+  if(!window._currentUser){alert('ログインが必要です');return;}
+  try{
+    const tmonthEl=document.getElementById('tmonth');
+    const archiveKey=tmonthEl.value; // "YYYY-MM"
+
+    setStatus('アーカイブ保存中...');
+
+    // Firestoreに現データをアーカイブ
+    if(window._archiveToFirestore){
+      await window._archiveToFirestore(archiveKey,{
+        archivedAt:new Date().toISOString(),
+        month:archiveKey,
+        wishes:JSON.parse(JSON.stringify(wishes||{})),
+        lastSchedule:JSON.parse(JSON.stringify(lastSchedule||{})),
+        lastAssignments:JSON.parse(JSON.stringify(lastAssignments||{})),
+        lastLocDates:JSON.parse(JSON.stringify(lastLocDates||{})),
+        lastMonthInfo:JSON.parse(JSON.stringify(lastMonthInfo||{})),
+        staff:JSON.parse(JSON.stringify(staff)),
+        locs:JSON.parse(JSON.stringify(locs)),
+      });
+    }
+
+    // 希望休をリセット
+    wishes={};
+    // シフト表をリセット
+    lastSchedule=null;lastAssignments=null;lastLocDates=null;lastMonthInfo=null;
+
+    // 翌月に進める
+    const[y,m]=archiveKey.split('-').map(Number);
+    const next=m>=12?`${y+1}-01`:`${y}-${String(m+1).padStart(2,'0')}`;
+    tmonthEl.value=next;
+
+    // 候補日リセット（新月分は空）
+    // ※ candidatesは引き継ぎ。必要なら手動で前月引き継ぎボタンを使う
+
+    saveAll();
+    renderWishes();
+
+    // result-areaをリセット
+    document.getElementById('result-area').innerHTML='<div style="text-align:center;padding:3rem;color:#888;"><p style="margin-bottom:1rem;">設定が完了したらシフトを自動生成できます</p><button class="btn btn-primary" onclick="generate()">シフトを自動生成</button></div>';
+
+    setStatus(`✅ 月次更新完了！${archiveKey}をアーカイブし、${next}の準備を開始しました`);
+    go('staff');
+    loadArchiveList();
+  }catch(err){
+    console.error('月次更新エラー:',err);
+    alert('エラーが発生しました: '+err.message);
+    setStatus('⚠️ 月次更新失敗: '+err.message);
+  }
+}
+
+/* --- 過去シフト一覧読み込み --- */
+async function loadArchiveList(){
+  const sel=document.getElementById('past-month-select');
+  if(!sel)return;
+  if(!window._loadArchiveList){
+    sel.innerHTML='<option value="">Firebase未接続</option>';return;
+  }
+  try{
+    const months=await window._loadArchiveList();
+    sel.innerHTML='<option value="">── 月を選んでください ──</option>';
+    if(!months||months.length===0){
+      sel.innerHTML+='<option value="" disabled>アーカイブがありません</option>';return;
+    }
+    months.sort().reverse().forEach(m=>{
+      const[y,mo]=m.split('-');
+      const opt=document.createElement('option');
+      opt.value=m;opt.textContent=`${y}年${parseInt(mo)}月`;
+      sel.appendChild(opt);
+    });
+  }catch(e){
+    sel.innerHTML='<option value="">読み込みエラー</option>';
+    console.error('アーカイブ一覧エラー:',e);
+  }
+}
+
+/* --- 過去シフト表示 --- */
+let _lastPastData=null;
+async function displayPastShift(month){
+  const area=document.getElementById('past-shift-display');
+  if(!month||!area)return;
+  area.innerHTML='<p class="muted" style="text-align:center;padding:20px;">読み込み中...</p>';
+  if(!window._loadArchiveData){area.innerHTML='<p class="muted" style="text-align:center;">Firebase未接続</p>';return;}
+  try{
+    const data=await window._loadArchiveData(month);
+    if(!data){area.innerHTML='<p class="muted" style="text-align:center;padding:20px;">データが見つかりません</p>';return;}
+    _lastPastData=data;
+    const locs_=data.locs||[];
+    const staff_=data.staff||[];
+    const assignments=data.lastAssignments||{};
+    const locDates=data.lastLocDates||{};
+    const info=data.lastMonthInfo||{};
+
+    if(!info.days){area.innerHTML='<p class="muted" style="text-align:center;padding:20px;">シフトデータがありません</p>';return;}
+
+    const{days,y,m}=info;
+    const DOW_=['日','月','火','水','木','金','土'];
+
+    // 場所別一覧テーブル
+    let html=`<div style="margin-bottom:8px;font-size:12px;color:#666;">アーカイブ日時: ${data.archivedAt?new Date(data.archivedAt).toLocaleString('ja-JP'):'不明'}</div>`;
+    html+=`<div style="overflow-x:auto;"><table id="past-shift-display">`;
+    html+=`<thead><tr><th>場所</th>`;
+    for(let d=1;d<=days;d++){
+      const dw=DOW_[new Date(y,m-1,d).getDay()];
+      const isH=dw==='日'||dw==='土';
+      html+=`<th style="${isH?'color:#c0392b;':''}">${d}<br><span style="font-size:9px;">${dw}</span></th>`;
+    }
+    html+=`<th>計</th></tr></thead><tbody>`;
+
+    locs_.forEach(l=>{
+      const ldl=locDates[l.id]||[];
+      const cnt=ldl.filter(d=>{const s=(assignments[l.id]||{})[d];return s&&s>0;}).length;
+      html+=`<tr><td style="font-weight:500;white-space:nowrap;">${l.name}</td>`;
+      for(let d=1;d<=days;d++){
+        if(!ldl.includes(d)){html+=`<td style="color:#ccc;">―</td>`;continue;}
+        const sid=(assignments[l.id]||{})[d];
+        if(sid===-1){html+=`<td style="color:#ccc;">―</td>`;continue;}
+        if(!sid){html+=`<td style="background:#FAEEDA;color:#633806;font-size:10px;">未</td>`;continue;}
+        const s=staff_.find(x=>x.id===sid);
+        html+=`<td style="background:#E1F5EE;color:#085041;font-size:10px;">${s?s.abbr||s.name.slice(0,2):'?'}</td>`;
+      }
+      html+=`<td style="font-weight:500;">${cnt}</td></tr>`;
+    });
+    html+=`</tbody></table></div>`;
+    area.innerHTML=html;
+  }catch(e){
+    area.innerHTML='<p style="color:red;text-align:center;padding:20px;">読み込みエラー</p>';
+    console.error(e);
+  }
+}
+
+/* --- 過去シフトCSV出力 --- */
+function exportPastShiftCSV(){
+  if(!_lastPastData){alert('シフトを選択してください');return;}
+  const data=_lastPastData;
+  const locs_=data.locs||[];const staff_=data.staff||[];
+  const assignments=data.lastAssignments||{};const locDates=data.lastLocDates||{};
+  const info=data.lastMonthInfo||{};
+  if(!info.days){alert('データがありません');return;}
+  const{days,y,m}=info;
+  const DOW_=['日','月','火','水','木','金','土'];
+  let csv='日付,曜日,場所,担当者\n';
+  for(let d=1;d<=days;d++){
+    const dw=DOW_[new Date(y,m-1,d).getDay()];
+    locs_.forEach(l=>{
+      const ldl=locDates[l.id]||[];
+      if(!ldl.includes(d))return;
+      const sid=(assignments[l.id]||{})[d];
+      if(!sid||sid<=0)return;
+      const s=staff_.find(x=>x.id===sid);
+      csv+=`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')},${dw},${l.name},${s?s.name:''}\n`;
+    });
+  }
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`shift_archive_${document.getElementById('past-month-select').value}.csv`;
+  a.click();URL.revokeObjectURL(a.href);
+}
+
+/* --- 希望休リセット --- */
+async function resetWishes(){
+  if(!confirm('希望休・希望出勤をすべてリセットしますか？'))return;
+  wishes={};
+  saveAll();renderWishes();
+  setStatus('希望休をリセットしました');
+}
+
+/* --- シフト表リセット --- */
+async function resetShiftTable(){
+  if(!confirm('シフト表をリセットしますか？（生成済みシフトが消えます）'))return;
+  lastSchedule=null;lastAssignments=null;lastLocDates=null;lastMonthInfo=null;
+  saveAll();
+  document.getElementById('result-area').innerHTML='<div style="text-align:center;padding:3rem;color:#888;"><p style="margin-bottom:1rem;">設定が完了したらシフトを自動生成できます</p><button class="btn btn-primary" onclick="generate()">シフトを自動生成</button></div>';
+  setStatus('シフト表をリセットしました');
+}
+
+/* ============================================================
+   ポスター作成
+   ============================================================ */
+let _posterImg=null;
+
+function posterLoadImage(input){
+  const file=input.files[0];
+  if(!file)return;
+  document.getElementById('poster-img-name').textContent=file.name;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const img=new Image();
+    img.onload=()=>{_posterImg=img;renderPoster();};
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function pv(id){return(document.getElementById(id)||{}).value||'';}
+
+function renderPoster(){
+  const wrap=document.getElementById('poster-preview-wrap');
+  const canvas=document.getElementById('poster-canvas');
+  if(!canvas||!wrap)return;
+  wrap.style.display='block';
+
+  // A4比率 210:297 → 794x1123px（96dpi）
+  const W=794,H=1123;
+  canvas.width=W;canvas.height=H;
+
+  const ctx=canvas.getContext('2d');
+  const c1=pv('poster-color1')||'#534AB7';
+  const c2=pv('poster-color2')||'#1D9E75';
+  const brand=pv('poster-brand')||'100g COFFEE';
+  const subtitle=pv('poster-subtitle');
+  const date=pv('poster-date');
+  const time=pv('poster-time');
+  const location=pv('poster-location');
+  const instagram=pv('poster-instagram');
+  const copy=pv('poster-copy');
+
+  // ===== 背景 =====
+  ctx.fillStyle='#FDFAF6';ctx.fillRect(0,0,W,H);
+
+  // ===== 上部カラーバー =====
+  ctx.fillStyle=c1;ctx.fillRect(0,0,W,64);
+
+  // ===== ブランド名（上部バー内） =====
+  ctx.fillStyle='#FFFFFF';
+  ctx.font='bold 26px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText(brand,W/2,32);
+
+  // ===== 装飾ライン =====
+  ctx.strokeStyle=c2;ctx.lineWidth=2.5;
+  ctx.beginPath();ctx.moveTo(40,80);ctx.lineTo(W-40,80);ctx.stroke();
+
+  // ===== 写真エリア =====
+  const imgY=90,imgH=_posterImg?470:430;
+  if(_posterImg){
+    // カバーフィット（縦横比保持・センタークロップ）
+    const iw=_posterImg.width,ih=_posterImg.height;
+    const dw=W-80,dh=imgH;
+    const ratio=Math.max(dw/iw,dh/ih);
+    const sw=dw/ratio,sh=dh/ratio;
+    const sx=(iw-sw)/2,sy=(ih-sh)/2;
+    ctx.save();
+    _roundRectPath(ctx,40,imgY,dw,imgH,10);ctx.clip();
+    ctx.drawImage(_posterImg,sx,sy,sw,sh,40,imgY,dw,imgH);
+    // グラデオーバーレイ（下部）
+    const grad=ctx.createLinearGradient(0,imgY+imgH*0.55,0,imgY+imgH);
+    grad.addColorStop(0,'rgba(0,0,0,0)');grad.addColorStop(1,'rgba(0,0,0,0.42)');
+    ctx.fillStyle=grad;ctx.fillRect(40,imgY,dw,imgH);
+    ctx.restore();
+  }else{
+    ctx.fillStyle='#EAE5DE';
+    _roundRectPath(ctx,40,imgY,W-80,imgH,10);ctx.fill();
+    ctx.fillStyle='#B0A89A';ctx.font='18px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText('📷 インスタグラム画像を選択してください',W/2,imgY+imgH/2);
+  }
+
+  // ===== コンテンツエリア =====
+  let y=imgY+imgH+28;
+  ctx.textBaseline='alphabetic';
+
+  // サブタイトル
+  if(subtitle){
+    ctx.fillStyle=c1;ctx.font='italic bold 18px sans-serif';ctx.textAlign='center';
+    ctx.fillText(subtitle,W/2,y);y+=32;
+  }
+
+  // 仕切り装飾
+  ctx.fillStyle=c2;ctx.fillRect(W/2-24,y,48,2);y+=16;
+
+  // キャッチコピー
+  if(copy){
+    ctx.fillStyle='#2C2416';ctx.font='15px sans-serif';ctx.textAlign='center';
+    copy.split('\n').forEach(line=>{
+      if(line.trim()){ctx.fillText(line.trim(),W/2,y);y+=23;}
+    });
+    y+=8;
+  }
+
+  // 横線
+  ctx.strokeStyle='#D5CECC';ctx.lineWidth=0.8;
+  ctx.beginPath();ctx.moveTo(50,y);ctx.lineTo(W-50,y);ctx.stroke();
+  y+=22;
+
+  // 出店情報（アイコン付き）
+  const infoItems=[
+    {icon:'📅',label:'出店日',val:date},
+    {icon:'🕙',label:'時間',val:time},
+    {icon:'📍',label:'場所',val:location},
+  ].filter(i=>i.val);
+
+  infoItems.forEach(item=>{
+    ctx.fillStyle=c2;ctx.font='bold 12px sans-serif';ctx.textAlign='left';
+    ctx.fillText(`${item.icon} ${item.label}`,56,y);
+    ctx.fillStyle='#1A1212';ctx.font='bold 19px sans-serif';
+    ctx.fillText(item.val,56,y+22);
+    y+=52;
+  });
+
+  // Instagramバッジ
+  if(instagram){
+    y+=4;
+    const badgeW=210;
+    ctx.fillStyle=c1;
+    _roundRectPath(ctx,(W-badgeW)/2,y-4,badgeW,34,17);ctx.fill();
+    ctx.fillStyle='#FFFFFF';ctx.font='bold 15px sans-serif';ctx.textAlign='center';
+    ctx.fillText('📷 '+instagram,W/2,y+18);
+    y+=50;
+  }
+
+  // ===== 下部バー =====
+  ctx.fillStyle=c1;ctx.fillRect(0,H-68,W,68);
+  ctx.fillStyle='#FFFFFF';ctx.font='13px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText('ご来店お待ちしております ☕',W/2,H-42);
+  ctx.font='11px sans-serif';ctx.fillStyle='rgba(255,255,255,0.65)';
+  ctx.fillText(brand,W/2,H-20);
+}
+
+function _roundRectPath(ctx,x,y,w,h,r){
+  ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+  ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();
+}
+
+function downloadPoster(){
+  renderPoster();
+  const canvas=document.getElementById('poster-canvas');
+  if(!canvas)return;
+  const a=document.createElement('a');
+  a.download=`100g_coffee_poster_${new Date().toISOString().slice(0,10)}.png`;
+  a.href=canvas.toDataURL('image/png',1.0);
+  a.click();
+}
   staff=v.staff||[];locs=v.locs||[];priorities=v.priorities||{};
   wishes=v.wishes||{};candidates=v.candidates||{};
   nextSid=Number(v.nextSid)||13;nextLid=Number(v.nextLid)||29;
@@ -2526,7 +3003,7 @@ window._setAppVars = function(v){
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
-import { getFirestore, doc, setDoc, getDoc }
+import { getFirestore, doc, setDoc, getDoc, collection, getDocs }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 const firebaseConfig = {
@@ -2629,6 +3106,7 @@ window._shareShiftToFirestore = async (shiftData) => {
 onAuthStateChanged(auth, async (user) => {
   if(user) {
     currentUser = user;
+    window._currentUser = user; // 月次更新で参照
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('app-body').style.display = 'block';
     const header = document.querySelector('header');
@@ -2641,8 +3119,27 @@ onAuthStateChanged(auth, async (user) => {
       header.appendChild(d);
     }
     await loadFromFirestore();
+
+    // ===== アーカイブ関数をwindowに公開 =====
+    window._archiveToFirestore = async (month, data) => {
+      const ref = doc(db, 'users', user.uid, 'archives', month);
+      const clean = JSON.parse(JSON.stringify(data, (k,v) => v === undefined ? null : v));
+      await setDoc(ref, clean);
+    };
+    window._loadArchiveList = async () => {
+      const col = collection(db, 'users', user.uid, 'archives');
+      const snap = await getDocs(col);
+      return snap.docs.map(d => d.id);
+    };
+    window._loadArchiveData = async (month) => {
+      const ref = doc(db, 'users', user.uid, 'archives', month);
+      const snap = await getDoc(ref);
+      return snap.exists() ? snap.data() : null;
+    };
+
   } else {
     currentUser = null;
+    window._currentUser = null;
     document.getElementById('login-screen').style.display = 'flex';
     document.getElementById('app-body').style.display = 'none';
   }
