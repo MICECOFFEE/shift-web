@@ -2987,6 +2987,8 @@ function downloadPoster(){
   a.href=canvas.toDataURL('image/png',1.0);
   a.click();
 }
+
+window._setAppVars = function(v){
   staff=v.staff||[];locs=v.locs||[];priorities=v.priorities||{};
   wishes=v.wishes||{};candidates=v.candidates||{};
   nextSid=Number(v.nextSid)||13;nextLid=Number(v.nextLid)||29;
