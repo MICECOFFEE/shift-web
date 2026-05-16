@@ -2998,9 +2998,11 @@ function renderPoster(callback){
   // スタッフ募集
   let recTop=listTop+locRows*LOC_CELL_H+6;
   const recH=62;
+  const qrSize=recH-8;  // QRサイズを先に定義
   _rrect(ctx,14,recTop,cW-28,recH,6,'#FDF0D8','#C9A882',0.8);
 
-  const textX=14+8+(cW-28-qrSize-16)/4;  // テキストを左寄り→右にQR、間に空白
+  // テキストを左寄り配置（右端にQR、間に空白）
+  const textX=(14+8+cW-14-qrSize-16)/2;
   ctx.fillStyle=BROWN;ctx.font='bold 13px sans-serif';ctx.textAlign='center';ctx.textBaseline='top';
   ctx.fillText('販売スタッフ募集中！！',textX,recTop+6);
   ctx.fillStyle=TXT;ctx.font='9px sans-serif';
@@ -3009,10 +3011,8 @@ function renderPoster(callback){
   ctx.fillStyle=MUTED;ctx.font='8px sans-serif';
   ctx.fillText('https://www.instagram.com/100g_coffee/',textX,recTop+46);
 
-  // QRコード（透過PNG → 背景色(CREAM)で合成）
-  const qrSize=recH-8;
+  // QRコード（右端）
   function drawQR(){
-    // 背景合成済み画像をそのまま描画
     ctx.drawImage(_QR_IMG,cW-14-qrSize,recTop+4,qrSize,qrSize);
   }
   if(_QR_IMG.complete&&_QR_IMG.naturalWidth>0){drawQR();}
