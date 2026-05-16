@@ -362,42 +362,24 @@ table.sg{border-collapse:collapse;min-width:100%;}
     <!-- ポスター -->
     <div id="p-poster" class="panel">
       <div class="card">
-        <div class="sec-title" style="margin-bottom:14px;">🖼️ 出店ポスター作成（A4）</div>
-
-        <div id="poster-img-drop" onclick="document.getElementById('poster-img-file').click()">
-          <input type="file" id="poster-img-file" accept="image/*" style="display:none;" onchange="posterLoadImage(this)"/>
-          <div style="font-size:22px;margin-bottom:6px;">📷</div>
-          <div style="font-size:13px;color:#666;margin-bottom:2px;">インスタグラム画像を選択（クリック）</div>
-          <div class="muted" id="poster-img-name">画像を選ぶとポスターに使用されます</div>
-        </div>
-
+        <div class="sec-title" style="margin-bottom:8px;">🖼️ 出店ポスター作成（A4）</div>
+        <p class="muted" style="margin-bottom:12px;">登録済みのシフトデータ・出店場所情報からBデザイン（コーヒー・ナチュラル）で自動生成します。</p>
         <div class="poster-form-row">
-          <div><label class="poster-form-label">ブランド名</label><input type="text" id="poster-brand" value="100g COFFEE" placeholder="100g COFFEE"/></div>
-          <div><label class="poster-form-label">サブタイトル</label><input type="text" id="poster-subtitle" value="移動販売コーヒー" placeholder="移動販売コーヒー"/></div>
+          <div>
+            <label class="poster-form-label">対象年月</label>
+            <input type="month" id="poster-month" style="width:100%;padding:7px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:inherit;"/>
+          </div>
+          <div>
+            <label class="poster-form-label">キャッチコピー（任意）</label>
+            <input type="text" id="poster-catch" placeholder="丁寧に淹れた一杯をお届けします" style="width:100%;padding:7px 10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:inherit;"/>
+          </div>
         </div>
-        <div class="poster-form-row">
-          <div><label class="poster-form-label">出店日・期間</label><input type="text" id="poster-date" placeholder="6月 毎週土・日"/></div>
-          <div><label class="poster-form-label">営業時間</label><input type="text" id="poster-time" placeholder="10:00〜18:00"/></div>
-        </div>
-        <div class="poster-form-row">
-          <div><label class="poster-form-label">場所・エリア</label><input type="text" id="poster-location" placeholder="烏丸錦小路"/></div>
-          <div><label class="poster-form-label">Instagramハンドル</label><input type="text" id="poster-instagram" placeholder="@100g_coffee"/></div>
-        </div>
-        <div class="poster-full-row">
-          <label class="poster-form-label">キャッチコピー・説明文</label>
-          <textarea id="poster-copy" placeholder="丁寧に淹れた一杯をお届けします。&#10;コーヒーで、あなたの一日を豊かに。"></textarea>
-        </div>
-        <div class="poster-form-row">
-          <div><label class="poster-form-label">テーマカラー</label><input type="color" id="poster-color1" value="#534AB7" style="height:38px;width:100%;padding:2px 4px;border:1px solid #ddd;border-radius:8px;"/></div>
-          <div><label class="poster-form-label">アクセントカラー</label><input type="color" id="poster-color2" value="#1D9E75" style="height:38px;width:100%;padding:2px 4px;border:1px solid #ddd;border-radius:8px;"/></div>
-        </div>
-
         <div class="poster-btn-row">
           <button id="btn-poster-preview" onclick="renderPoster()">👁 プレビュー生成</button>
           <button id="btn-poster-download" onclick="downloadPoster()">💾 PNG保存（A4）</button>
         </div>
-        <div id="poster-preview-wrap" style="display:none;">
-          <canvas id="poster-canvas"></canvas>
+        <div id="poster-preview-wrap" style="display:none;max-width:500px;margin:0 auto;">
+          <canvas id="poster-canvas" style="width:100%;height:auto;display:block;border:0.5px solid #ddd;border-radius:6px;"></canvas>
         </div>
       </div>
     </div>
@@ -2833,149 +2815,220 @@ async function resetShiftTable(){
 /* ============================================================
    ポスター作成
    ============================================================ */
-let _posterImg=null;
+/* ============================================================
+   ポスター作成（Bデザイン：コーヒー・ナチュラル）
+   シフトデータ・出店場所から自動生成 → A4 PNG出力
+   ============================================================ */
 
-function posterLoadImage(input){
-  const file=input.files[0];
-  if(!file)return;
-  document.getElementById('poster-img-name').textContent=file.name;
-  const reader=new FileReader();
-  reader.onload=e=>{
-    const img=new Image();
-    img.onload=()=>{_posterImg=img;renderPoster();};
-    img.src=e.target.result;
-  };
-  reader.readAsDataURL(file);
-}
-
-function pv(id){return(document.getElementById(id)||{}).value||'';}
-
-function renderPoster(){
-  const wrap=document.getElementById('poster-preview-wrap');
-  const canvas=document.getElementById('poster-canvas');
-  if(!canvas||!wrap)return;
-  wrap.style.display='block';
-
-  // A4比率 210:297 → 794x1123px（96dpi）
-  const W=794,H=1123;
-  canvas.width=W;canvas.height=H;
-
-  const ctx=canvas.getContext('2d');
-  const c1=pv('poster-color1')||'#534AB7';
-  const c2=pv('poster-color2')||'#1D9E75';
-  const brand=pv('poster-brand')||'100g COFFEE';
-  const subtitle=pv('poster-subtitle');
-  const date=pv('poster-date');
-  const time=pv('poster-time');
-  const location=pv('poster-location');
-  const instagram=pv('poster-instagram');
-  const copy=pv('poster-copy');
-
-  // ===== 背景 =====
-  ctx.fillStyle='#FDFAF6';ctx.fillRect(0,0,W,H);
-
-  // ===== 上部カラーバー =====
-  ctx.fillStyle=c1;ctx.fillRect(0,0,W,64);
-
-  // ===== ブランド名（上部バー内） =====
-  ctx.fillStyle='#FFFFFF';
-  ctx.font='bold 26px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
-  ctx.fillText(brand,W/2,32);
-
-  // ===== 装飾ライン =====
-  ctx.strokeStyle=c2;ctx.lineWidth=2.5;
-  ctx.beginPath();ctx.moveTo(40,80);ctx.lineTo(W-40,80);ctx.stroke();
-
-  // ===== 写真エリア =====
-  const imgY=90,imgH=_posterImg?470:430;
-  if(_posterImg){
-    // カバーフィット（縦横比保持・センタークロップ）
-    const iw=_posterImg.width,ih=_posterImg.height;
-    const dw=W-80,dh=imgH;
-    const ratio=Math.max(dw/iw,dh/ih);
-    const sw=dw/ratio,sh=dh/ratio;
-    const sx=(iw-sw)/2,sy=(ih-sh)/2;
-    ctx.save();
-    _roundRectPath(ctx,40,imgY,dw,imgH,10);ctx.clip();
-    ctx.drawImage(_posterImg,sx,sy,sw,sh,40,imgY,dw,imgH);
-    // グラデオーバーレイ（下部）
-    const grad=ctx.createLinearGradient(0,imgY+imgH*0.55,0,imgY+imgH);
-    grad.addColorStop(0,'rgba(0,0,0,0)');grad.addColorStop(1,'rgba(0,0,0,0.42)');
-    ctx.fillStyle=grad;ctx.fillRect(40,imgY,dw,imgH);
-    ctx.restore();
-  }else{
-    ctx.fillStyle='#EAE5DE';
-    _roundRectPath(ctx,40,imgY,W-80,imgH,10);ctx.fill();
-    ctx.fillStyle='#B0A89A';ctx.font='18px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.fillText('📷 インスタグラム画像を選択してください',W/2,imgY+imgH/2);
-  }
-
-  // ===== コンテンツエリア =====
-  let y=imgY+imgH+28;
-  ctx.textBaseline='alphabetic';
-
-  // サブタイトル
-  if(subtitle){
-    ctx.fillStyle=c1;ctx.font='italic bold 18px sans-serif';ctx.textAlign='center';
-    ctx.fillText(subtitle,W/2,y);y+=32;
-  }
-
-  // 仕切り装飾
-  ctx.fillStyle=c2;ctx.fillRect(W/2-24,y,48,2);y+=16;
-
-  // キャッチコピー
-  if(copy){
-    ctx.fillStyle='#2C2416';ctx.font='15px sans-serif';ctx.textAlign='center';
-    copy.split('\n').forEach(line=>{
-      if(line.trim()){ctx.fillText(line.trim(),W/2,y);y+=23;}
-    });
-    y+=8;
-  }
-
-  // 横線
-  ctx.strokeStyle='#D5CECC';ctx.lineWidth=0.8;
-  ctx.beginPath();ctx.moveTo(50,y);ctx.lineTo(W-50,y);ctx.stroke();
-  y+=22;
-
-  // 出店情報（アイコン付き）
-  const infoItems=[
-    {icon:'📅',label:'出店日',val:date},
-    {icon:'🕙',label:'時間',val:time},
-    {icon:'📍',label:'場所',val:location},
-  ].filter(i=>i.val);
-
-  infoItems.forEach(item=>{
-    ctx.fillStyle=c2;ctx.font='bold 12px sans-serif';ctx.textAlign='left';
-    ctx.fillText(`${item.icon} ${item.label}`,56,y);
-    ctx.fillStyle='#1A1212';ctx.font='bold 19px sans-serif';
-    ctx.fillText(item.val,56,y+22);
-    y+=52;
-  });
-
-  // Instagramバッジ
-  if(instagram){
-    y+=4;
-    const badgeW=210;
-    ctx.fillStyle=c1;
-    _roundRectPath(ctx,(W-badgeW)/2,y-4,badgeW,34,17);ctx.fill();
-    ctx.fillStyle='#FFFFFF';ctx.font='bold 15px sans-serif';ctx.textAlign='center';
-    ctx.fillText('📷 '+instagram,W/2,y+18);
-    y+=50;
-  }
-
-  // ===== 下部バー =====
-  ctx.fillStyle=c1;ctx.fillRect(0,H-68,W,68);
-  ctx.fillStyle='#FFFFFF';ctx.font='13px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
-  ctx.fillText('ご来店お待ちしております ☕',W/2,H-42);
-  ctx.font='11px sans-serif';ctx.fillStyle='rgba(255,255,255,0.65)';
-  ctx.fillText(brand,W/2,H-20);
-}
-
-function _roundRectPath(ctx,x,y,w,h,r){
+// ---- ユーティリティ ----
+function _rrect(ctx,x,y,w,h,r,fill,stroke,lw){
   ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);
   ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
   ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);
   ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();
+  if(fill){ctx.fillStyle=fill;ctx.fill();}
+  if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw||0.8;ctx.stroke();}
+}
+
+function _drawQR(ctx,x,y,size,color){
+  const cell=size/7;
+  // QR風装飾（位置検出パターン3隅）
+  [[0,0],[4,0],[0,4]].forEach(([ox,oy])=>{
+    ctx.fillStyle=color;
+    ctx.fillRect(x+ox*cell,y+oy*cell,3*cell,3*cell);
+    ctx.fillStyle='#FBF7F2';
+    ctx.fillRect(x+ox*cell+cell*0.35,y+oy*cell+cell*0.35,3*cell-cell*0.7,3*cell-cell*0.7);
+    ctx.fillStyle=color;
+    ctx.fillRect(x+ox*cell+cell,y+oy*cell+cell,cell,cell);
+  });
+  // 中央データセル
+  const dots=[[2,2],[3,3],[4,2],[2,4],[4,4],[3,5],[5,3],[5,5],[6,6],[1,6],[6,1]];
+  dots.forEach(([dx,dy])=>{ctx.fillStyle=color;ctx.fillRect(x+dx*cell,y+dy*cell,cell*0.85,cell*0.85);});
+}
+
+function _fitText(ctx,text,maxW){
+  let fs=parseInt(ctx.font);
+  while(ctx.measureText(text).width>maxW&&fs>8){fs--;ctx.font=ctx.font.replace(/\d+px/,fs+'px');}
+}
+
+// ---- メイン描画 ----
+function renderPoster(){
+  const wrap=document.getElementById('poster-preview-wrap');
+  const canvas=document.getElementById('poster-canvas');
+  if(!canvas||!wrap)return;
+
+  // === データ収集 ===
+  const monthVal=document.getElementById('poster-month')?.value||'';
+  const catchCopy=(document.getElementById('poster-catch')?.value||'').trim();
+
+  // 年月を決定（入力値 or lastMonthInfo or 当月）
+  let Y,M;
+  if(monthVal){[Y,M]=monthVal.split('-').map(Number);}
+  else if(lastMonthInfo&&lastMonthInfo.y){Y=lastMonthInfo.y;M=lastMonthInfo.m;}
+  else{const n=new Date();Y=n.getFullYear();M=n.getMonth()+1;}
+
+  const days=new Date(Y,M,0).getDate();
+  const firstDow=new Date(Y,M-1,1).getDay(); // 0=日
+
+  // 出店場所ごとの出店日リストを収集
+  // lastLocDates: {locId:[d,...]} lastAssignments: {locId:{d:staffId}}
+  const locUsed=[];
+  if(locs&&locs.length>0){
+    locs.forEach(l=>{
+      const ldl=(lastLocDates&&lastLocDates[l.id])||[];
+      const activeDays=ldl.filter(d=>{
+        const sid=(lastAssignments&&lastAssignments[l.id]&&lastAssignments[l.id][d]);
+        return sid&&sid>0;
+      });
+      if(activeDays.length>0||ldl.length>0){
+        locUsed.push({id:l.id,name:l.name,addr:l.address||'',time:l.openTime||'',days:ldl,activeDays});
+      }
+    });
+  }
+
+  // === Canvas設定（A4 @ 2x解像度 → 794×1123 * 2 = 1588×2246）===
+  const SCALE=2;
+  const W=794*SCALE,H=1123*SCALE;
+  canvas.width=W;canvas.height=H;
+
+  const ctx=canvas.getContext('2d');
+  ctx.scale(SCALE,SCALE);
+  const cW=794,cH=1123;
+
+  // ==== カラーパレット（Bデザイン）====
+  const BROWN='#5C3D2E';
+  const BROWN_L='#8B5E3C';
+  const CREAM='#FBF7F2';
+  const GOLD='#F5C842';
+  const GOLD_D='#C9A020';
+  const BEIGE='#E8D9C5';
+  const TXT='#3D2B1F';
+  const MUTED='#9A7A5E';
+  const SUN='#C0392B';   // 日曜
+  const SAT='#1A5FA8';   // 土曜
+
+  // ==== 背景 ====
+  ctx.fillStyle=CREAM;ctx.fillRect(0,0,cW,cH);
+
+  // ==== ヘッダー ====
+  ctx.fillStyle=BROWN;ctx.fillRect(0,0,cW,80);
+  ctx.fillStyle=GOLD;ctx.fillRect(0,76,cW,5);
+
+  // ロゴ
+  ctx.fillStyle='#FFFFFF';
+  ctx.font='bold 32px serif';ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText('100g COFFEE',cW/2,34);
+  ctx.fillStyle='rgba(255,255,255,0.72)';
+  ctx.font='13px sans-serif';
+  ctx.fillText('― 移動販売コーヒー ―',cW/2,60);
+
+  // ==== 月見出し ====
+  ctx.fillStyle=BROWN;ctx.font='bold 20px serif';ctx.textAlign='center';ctx.textBaseline='top';
+  ctx.fillText(`${Y}年${M}月 出店カレンダー`,cW/2,90);
+
+  // キャッチコピー
+  if(catchCopy){
+    ctx.fillStyle=MUTED;ctx.font='13px sans-serif';ctx.textAlign='center';
+    ctx.fillText(catchCopy,cW/2,116);
+  }
+
+  // ==== カレンダー ====
+  const calTop=catchCopy?138:126;
+  const colW=(cW-32)/7;
+  const rowH=52;
+  const startX=16;
+
+  // 曜日ヘッダー
+  ['日','月','火','水','木','金','土'].forEach((d,i)=>{
+    ctx.fillStyle=i===0?SUN:i===6?SAT:TXT;
+    ctx.font='bold 11px sans-serif';ctx.textAlign='center';ctx.textBaseline='top';
+    ctx.fillText(d,startX+colW*i+colW/2,calTop);
+  });
+
+  // 日付セル
+  const cellTop=calTop+16;
+  for(let d=1;d<=days;d++){
+    const dow=(firstDow+d-1)%7;
+    const week=Math.floor((firstDow+d-1)/7);
+    const cx=startX+dow*colW;
+    const cy=cellTop+week*rowH;
+    const cellBg=dow===0?'#FEF0EE':dow===6?'#EEF4FD':'#FFFFFF';
+    _rrect(ctx,cx+1,cy,colW-2,rowH-3,3,cellBg,'#D5C5B5',0.5);
+
+    // 日付数字
+    ctx.fillStyle=dow===0?SUN:dow===6?SAT:TXT;
+    ctx.font='bold 13px sans-serif';ctx.textAlign='center';ctx.textBaseline='top';
+    ctx.fillText(String(d),cx+colW/2,cy+4);
+
+    // 出店場所名（その日に出店がある場所）
+    const locsOnDay=locUsed.filter(l=>l.days.includes(d));
+    ctx.font='7.5px sans-serif';
+    locsOnDay.slice(0,4).forEach((l,li)=>{
+      const nm=l.name.length>6?l.name.slice(0,6)+'…':l.name;
+      ctx.fillStyle=BROWN_L;
+      ctx.fillText(nm,cx+colW/2,cy+18+li*9);
+    });
+    if(locsOnDay.length>4){
+      ctx.fillStyle=MUTED;ctx.fillText('他'+(locsOnDay.length-4)+'件',cx+colW/2,cy+54);
+    }
+  }
+
+  // ==== 出店場所一覧 ====
+  const weeks=Math.ceil((firstDow+days)/7);
+  let listTop=cellTop+weeks*rowH+14;
+
+  // セクションタイトル
+  ctx.fillStyle=BROWN;ctx.font='bold 14px sans-serif';ctx.textAlign='left';ctx.textBaseline='top';
+  ctx.fillText('出店場所一覧',16,listTop);
+  ctx.strokeStyle=GOLD_D;ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(16,listTop+18);ctx.lineTo(cW-16,listTop+18);ctx.stroke();
+  listTop+=24;
+
+  // 2列グリッド表示
+  const colW2=(cW-40)/2;
+  const visLocs=locUsed.length>0?locUsed:locs||[];
+  const rowH2=32;
+  visLocs.forEach((l,i)=>{
+    const col=i%2;
+    const row=Math.floor(i/2);
+    const lx=16+col*(colW2+8);
+    const ly=listTop+row*rowH2;
+    _rrect(ctx,lx,ly,colW2,rowH2-3,4,'#FFFFFF','#D5C5B5',0.5);
+    ctx.fillStyle=BROWN;ctx.font='bold 9px sans-serif';ctx.textAlign='left';ctx.textBaseline='top';
+    const nm=l.name||l;
+    ctx.fillText(nm,lx+6,ly+4);
+    if(l.time){ctx.fillStyle=MUTED;ctx.font='7.5px sans-serif';ctx.fillText(l.time,lx+6,ly+15);}
+    if(l.addr){
+      ctx.fillStyle='#B09880';ctx.font='7px sans-serif';
+      const adr=l.addr.length>22?l.addr.slice(0,22)+'…':l.addr;
+      ctx.fillText(adr,lx+6,ly+22);
+    }
+  });
+
+  // ==== スタッフ募集 ====
+  const locRows=Math.ceil(visLocs.length/2);
+  let recTop=listTop+locRows*rowH2+10;
+
+  _rrect(ctx,16,recTop,cW-32,62,6,'#FDF0D8','#C9A882',0.8);
+
+  ctx.fillStyle=BROWN;ctx.font='bold 13px sans-serif';ctx.textAlign='center';ctx.textBaseline='top';
+  ctx.fillText('販売スタッフ募集中！！',cW/2-32,recTop+8);
+  ctx.fillStyle=TXT;ctx.font='9px sans-serif';
+  ctx.fillText('詳しくはスタッフまたはインスタグラムの',cW/2-32,recTop+26);
+  ctx.fillText('ダイレクトメールでお問い合わせください。',cW/2-32,recTop+38);
+  ctx.fillStyle=MUTED;ctx.font='8px sans-serif';
+  ctx.fillText('https://www.instagram.com/100g_coffee/',cW/2-32,recTop+50);
+
+  // QRコード
+  _drawQR(ctx,cW-74,recTop+6,56,BROWN);
+
+  // ==== 下部バー ====
+  ctx.fillStyle=BROWN;ctx.fillRect(0,cH-28,cW,28);
+  ctx.fillStyle=GOLD;ctx.fillRect(0,cH-30,cW,3);
+  ctx.fillStyle='#FFFFFF';ctx.font='9px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText('https://www.instagram.com/100g_coffee/',cW/2,cH-14);
+
+  wrap.style.display='block';
 }
 
 function downloadPoster(){
@@ -2983,9 +3036,17 @@ function downloadPoster(){
   const canvas=document.getElementById('poster-canvas');
   if(!canvas)return;
   const a=document.createElement('a');
-  a.download=`100g_coffee_poster_${new Date().toISOString().slice(0,10)}.png`;
+  const d=new Date();
+  a.download=`100g_coffee_poster_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}.png`;
   a.href=canvas.toDataURL('image/png',1.0);
   a.click();
+}
+
+function _roundRectPath(ctx,x,y,w,h,r){
+  ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+  ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();
 }
 
 window._setAppVars = function(v){
