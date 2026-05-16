@@ -2886,9 +2886,10 @@ function renderPoster(){
     calTop=122;
   }
 
-  // 場所一覧・募集枠の高さを計算して残スペースをカレンダーに割り当てる
+  // 場所一覧・募集枠の高さを計算
   const locRows=Math.ceil(visLocs.length/2);
-  const locAreaH=22+locRows*30+8;
+  const LOC_CELL_H=34; // 場所セルの高さ（住所3行分を確保）
+  const locAreaH=22+locRows*LOC_CELL_H+8;
   const recAreaH=72;
   const footerH=28;
   const calAreaH=cH-calTop-16-locAreaH-recAreaH-footerH;
@@ -2905,6 +2906,15 @@ function renderPoster(){
   });
 
   const cellTop=calTop+16;
+  // 基準フォントサイズ：セル幅に7文字が収まるサイズ
+  const BASE_CELL_FS=(()=>{
+    let fs=9;
+    ctx.font=fs+'px sans-serif';
+    // 7文字の全角文字列の幅がcolW-4以内になるサイズを探す（上限9px）
+    const sample='あいうえおかき';
+    while(fs<9&&ctx.measureText(sample).width<colW-4)fs+=0.5;
+    return Math.min(fs,9);
+  })();
 
   for(let d=1;d<=days;d++){
     const dow=(firstDow+d-1)%7;
@@ -2920,19 +2930,21 @@ function renderPoster(){
 
     const locsOnDay=visLocs.filter(l=>l.days.includes(d));
     if(locsOnDay.length>0){
-      const maxLines=Math.max(1,Math.floor((rowH-18)/9));
+      const maxLines=Math.max(1,Math.floor((rowH-18)/10));
       locsOnDay.slice(0,maxLines).forEach((l,li)=>{
-        // 場所名を枠幅に収まるまでフォントサイズを下げる
-        let fs=8;
+        const nm=l.name;
+        // 7文字以内はベースサイズ、8文字以上はフォントを縮小して全文表示
+        let fs=BASE_CELL_FS;
         ctx.font=fs+'px sans-serif';
-        let nm=l.name;
-        while(ctx.measureText(nm).width>colW-5&&fs>5){fs-=0.5;ctx.font=fs+'px sans-serif';}
+        while(ctx.measureText(nm).width>colW-4&&fs>5){
+          fs-=0.3;ctx.font=fs+'px sans-serif';
+        }
         ctx.fillStyle=BROWN_L;ctx.textAlign='center';ctx.textBaseline='top';
-        ctx.fillText(nm,cx+colW/2,cy+17+li*(fs+2));
+        ctx.fillText(nm,cx+colW/2,cy+17+li*(fs+2.5));
       });
       if(locsOnDay.length>maxLines){
         ctx.fillStyle=MUTED;ctx.font='6px sans-serif';ctx.textAlign='center';
-        ctx.fillText('+'+(locsOnDay.length-maxLines)+'件',cx+colW/2,cy+rowH-8);
+        ctx.fillText('+'+(locsOnDay.length-maxLines)+'件',cx+colW/2,cy+rowH-7);
       }
     }
   }
@@ -2946,32 +2958,43 @@ function renderPoster(){
   listTop+=22;
 
   const colW2=(cW-36)/2;
-  const cellH2=28;
+
   visLocs.forEach((l,i)=>{
     const col=i%2,row=Math.floor(i/2);
     const lx=14+col*(colW2+8);
-    const ly=listTop+row*cellH2;
-    _rrect(ctx,lx,ly,colW2,cellH2-3,3,'#FFFFFF','#D5C5B5',0.5);
+    const ly=listTop+row*LOC_CELL_H;
+    _rrect(ctx,lx,ly,colW2,LOC_CELL_H-3,3,'#FFFFFF','#D5C5B5',0.5);
 
-    // 場所名：フォントを縮小して全文表示
-    let fs=9,nm=l.name||String(l);
-    ctx.font='bold '+fs+'px sans-serif';
-    while(ctx.measureText(nm).width>colW2-60&&fs>6){fs-=0.5;ctx.font='bold '+fs+'px sans-serif';}
+    // 場所名：縮小して全文表示
+    let nmFs=9,nm=l.name||String(l);
+    ctx.font='bold '+nmFs+'px sans-serif';
+    while(ctx.measureText(nm).width>colW2-8&&nmFs>6){nmFs-=0.3;ctx.font='bold '+nmFs+'px sans-serif';}
     ctx.fillStyle=BROWN;ctx.textAlign='left';ctx.textBaseline='top';
-    ctx.fillText(nm,lx+5,ly+3);
+    ctx.fillText(nm,lx+5,ly+2);
 
-    if(l.time){ctx.fillStyle=MUTED;ctx.font='7px sans-serif';ctx.fillText(l.time,lx+5,ly+13);}
+    // 営業時間
+    if(l.time){
+      ctx.fillStyle=MUTED;ctx.font='7px sans-serif';
+      ctx.fillText(l.time,lx+5,ly+13);
+    }
+
+    // 住所：必ず枠内に収める（フォント縮小＋省略）
     if(l.addr){
-      ctx.fillStyle='#B09880';ctx.font='6.5px sans-serif';
+      const maxAddrW=colW2-8;
+      let aFs=6.5;ctx.font=aFs+'px sans-serif';
       let adr=l.addr;
-      while(ctx.measureText(adr).width>colW2-10&&adr.length>2)adr=adr.slice(0,-1);
-      if(adr!==l.addr)adr+='…';
-      ctx.fillText(adr,lx+5,ly+21);
+      // まずフォントを縮小して全文が入るか試みる（最小5.5px）
+      while(ctx.measureText(adr).width>maxAddrW&&aFs>5.5){aFs-=0.2;ctx.font=aFs+'px sans-serif';}
+      // それでも入らなければ末尾を切り詰める
+      while(ctx.measureText(adr).width>maxAddrW&&adr.length>2)adr=adr.slice(0,-1);
+      if(adr!==l.addr&&!adr.endsWith('…'))adr+='…';
+      ctx.fillStyle='#B09880';
+      ctx.fillText(adr,lx+5,ly+22);
     }
   });
 
   // スタッフ募集
-  let recTop=listTop+locRows*cellH2+6;
+  let recTop=listTop+locRows*LOC_CELL_H+6;
   const recH=64;
   _rrect(ctx,14,recTop,cW-28,recH,6,'#FDF0D8','#C9A882',0.8);
 
@@ -2984,9 +3007,14 @@ function renderPoster(){
   ctx.fillStyle=MUTED;ctx.font='8px sans-serif';
   ctx.fillText('https://www.instagram.com/100g_coffee/',textX,recTop+50);
 
-  // QR画像
+  // QR画像（透過PNG: globalCompositeOperation で黒背景を無効化）
   const qrSize=recH-8;
-  function drawQR(){ctx.drawImage(_QR_IMG,cW-14-qrSize,recTop+4,qrSize,qrSize);}
+  function drawQR(){
+    ctx.save();
+    // source-over で描画するだけでOK（透過PNGなので背景不要）
+    ctx.drawImage(_QR_IMG,cW-14-qrSize,recTop+4,qrSize,qrSize);
+    ctx.restore();
+  }
   if(_QR_IMG.complete&&_QR_IMG.naturalWidth>0){drawQR();}
   else{_QR_IMG.onload=drawQR;}
 
