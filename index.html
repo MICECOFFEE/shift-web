@@ -3022,32 +3022,28 @@ function renderPoster(callback){
   });
 
   // ===== スタッフ募集枠 =====
-  // 場所一覧のロウ数を実際のCELL_H_CALCで再計算
   const actualLocH=locRows*CELL_H_CALC;
   let recTop=listTop+actualLocH+6;
   const recH=64;
   const qrSize=recH-8;
   _rrect(ctx,14,recTop,cW-28,recH,6,'#FDF0D8','#C9A882',0.8);
 
-  // QRコード：枠の中央やや左寄り（テキストブロックと均等に）
-  // 枠内を左テキスト + 中央空白(赤枠) + 右QR の3分割
-  // テキスト幅≒240px、QR≒56px、残り≒枠幅-両端28-テキスト-QR-余白
-  const recInnerW=cW-28;
-  const textBlockW=Math.floor(recInnerW*0.52); // 左52%をテキスト
-  const qrBlockW=qrSize+8;                     // QRブロック幅
-  const gapW=recInnerW-textBlockW-qrBlockW;    // 中央の空白（赤枠位置）
-  const textCx=14+textBlockW/2;                // テキスト中心X
-  const qrX=14+textBlockW+gapW;               // QR左端X
-
   ctx.fillStyle=BROWN;ctx.font='bold 13px sans-serif';ctx.textAlign='center';ctx.textBaseline='top';
-  ctx.fillText('販売スタッフ募集中！！',textCx,recTop+6);
+  ctx.fillText('販売スタッフ募集中！！',cW/2,recTop+6);
   ctx.fillStyle=TXT;ctx.font='9px sans-serif';
-  ctx.fillText('詳しくはスタッフまたはインスタグラムの',textCx,recTop+22);
-  ctx.fillText('ダイレクトメールでお問い合わせください。',textCx,recTop+33);
+  ctx.fillText('詳しくはスタッフまたはインスタグラムの',cW/2,recTop+22);
+  ctx.fillText('ダイレクトメールでお問い合わせください。',cW/2,recTop+33);
   ctx.fillStyle=MUTED;ctx.font='8px sans-serif';
-  ctx.fillText('https://www.instagram.com/100g_coffee/',textCx,recTop+46);
+  ctx.fillText('https://www.instagram.com/100g_coffee/',cW/2,recTop+46);
 
-  // QRコード描画
+  // QR：テキストブロック右端のすぐ右横
+  // テキスト最大幅を測定してQR位置を決定
+  ctx.font='9px sans-serif';
+  const textMaxW=Math.max(
+    ctx.measureText('詳しくはスタッフまたはインスタグラムの').width,
+    ctx.measureText('ダイレクトメールでお問い合わせください。').width
+  );
+  const qrX=Math.ceil(cW/2+textMaxW/2+6);  // テキスト右端+6px
   function drawQR(){
     ctx.drawImage(_QR_IMG,qrX,recTop+4,qrSize,qrSize);
   }
