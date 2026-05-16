@@ -2855,10 +2855,10 @@ function renderPoster(callback){
   if(locs&&locs.length>0){
     locs.forEach(l=>{
       const ldl=(lastLocDates&&lastLocDates[l.id])||[];
-      if(ldl.length>0)locUsed.push({id:l.id,name:l.name,addr:l.address||'',time:l.openTime||'',days:ldl});
+      if(ldl.length>0)locUsed.push({id:l.id,name:l.name,addr:l.address||'',time:l.hours||'',days:ldl});
     });
   }
-  const visLocs=locUsed.length>0?locUsed:(locs||[]).map(l=>({id:l.id,name:l.name,addr:l.address||'',time:l.openTime||'',days:[]}));
+  const visLocs=locUsed.length>0?locUsed:(locs||[]).map(l=>({id:l.id,name:l.name,addr:l.address||'',time:l.hours||'',days:[]}));
 
   const SCALE=2,cW=794,cH=1123;
   canvas.width=cW*SCALE;canvas.height=cH*SCALE;
@@ -3000,7 +3000,7 @@ function renderPoster(callback){
   const recH=62;
   _rrect(ctx,14,recTop,cW-28,recH,6,'#FDF0D8','#C9A882',0.8);
 
-  const textX=cW/2-30;
+  const textX=14+8+(cW-28-qrSize-16)/4;  // テキストを左寄り→右にQR、間に空白
   ctx.fillStyle=BROWN;ctx.font='bold 13px sans-serif';ctx.textAlign='center';ctx.textBaseline='top';
   ctx.fillText('販売スタッフ募集中！！',textX,recTop+6);
   ctx.fillStyle=TXT;ctx.font='9px sans-serif';
