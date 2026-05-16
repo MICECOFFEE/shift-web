@@ -2899,7 +2899,7 @@ function renderPoster(callback){
 
   // 高さ計算
   const locRows=Math.ceil(visLocs.length/2);
-  const LOC_CELL_H=28;
+  const LOC_CELL_H=26;
   const locAreaH=22+locRows*LOC_CELL_H+8;
   const recAreaH=70;
   const footerH=28;
@@ -2959,61 +2959,97 @@ function renderPoster(callback){
   ctx.beginPath();ctx.moveTo(14,listTop+17);ctx.lineTo(cW-14,listTop+17);ctx.stroke();
   listTop+=22;
 
+  // ===== 出店場所一覧セル =====
+  // レイアウト: 1行目「場所名　営業時間」、2行目「住所」
+  // セル高さを場所名+住所の2行が収まるよう計算
+  const LOC_NM_FS=9;   // 場所名フォント(基準)
+  const LOC_TM_FS=7.5; // 営業時間フォント
+  const LOC_AD_FS=7;   // 住所フォント(基準)
+  const LOC_LINE1_H=LOC_NM_FS+2; // 1行目の高さ
+  const LOC_LINE2_H=LOC_AD_FS+2; // 2行目の高さ
+  const LOC_PAD=4;     // 上下パディング
+  const CELL_H_CALC=LOC_PAD+LOC_LINE1_H+LOC_LINE2_H+LOC_PAD; // ≒24px
+
   const colW2=(cW-36)/2;
   visLocs.forEach((l,i)=>{
     const col=i%2,row=Math.floor(i/2);
     const lx=14+col*(colW2+8);
-    const ly=listTop+row*LOC_CELL_H;
-    _rrect(ctx,lx,ly,colW2,LOC_CELL_H-2,3,'#FFFFFF','#D5C5B5',0.5);
+    const ly=listTop+row*CELL_H_CALC;
+    _rrect(ctx,lx,ly,colW2,CELL_H_CALC-2,3,'#FFFFFF','#D5C5B5',0.5);
 
-    // 場所名（縮小して全文）
-    let nmFs=9,nm=l.name||String(l);
-    ctx.font='bold '+nmFs+'px sans-serif';
-    while(ctx.measureText(nm).width>colW2-8&&nmFs>6){nmFs-=0.3;ctx.font='bold '+nmFs+'px sans-serif';}
-    ctx.fillStyle=BROWN;ctx.textAlign='left';ctx.textBaseline='top';
-    ctx.fillText(nm,lx+5,ly+2);
+    ctx.textBaseline='top';
 
-    // 営業時間・住所（行間を詰めて枠内に収める）
-    const infoBaseY=ly+nmFs+3;
-    let nextY=infoBaseY;
+    // --- 1行目: 場所名（左）＋営業時間（右寄り） ---
+    const line1Y=ly+LOC_PAD;
+    const nm=l.name||String(l);
+
+    // 営業時間の幅を先に計算
+    let timeW=0;
     if(l.time){
-      ctx.fillStyle=MUTED;ctx.font='7.5px sans-serif';
-      ctx.textBaseline='top';
-      ctx.fillText(l.time,lx+5,nextY);
-      nextY+=9;
+      ctx.font=LOC_TM_FS+'px sans-serif';
+      timeW=ctx.measureText(l.time).width+4; // 左余白4px
     }
+    const nmMaxW=colW2-8-timeW; // 場所名の最大幅
+
+    // 場所名フォントサイズ調整
+    let nmFs=LOC_NM_FS;
+    ctx.font='bold '+nmFs+'px sans-serif';
+    while(ctx.measureText(nm).width>nmMaxW&&nmFs>6){nmFs-=0.3;ctx.font='bold '+nmFs+'px sans-serif';}
+    ctx.fillStyle=BROWN;ctx.textAlign='left';
+    ctx.fillText(nm,lx+4,line1Y);
+
+    // 営業時間（右寄り）
+    if(l.time){
+      ctx.fillStyle=MUTED;ctx.font=LOC_TM_FS+'px sans-serif';ctx.textAlign='right';
+      ctx.fillText(l.time,lx+colW2-4,line1Y+(nmFs-LOC_TM_FS)/2);
+    }
+
+    // --- 2行目: 住所 ---
     if(l.addr){
+      const line2Y=ly+LOC_PAD+LOC_LINE1_H+1;
       const maxAddrW=colW2-8;
-      // 住所は最大8px、枠幅に収まらなければ縮小
-      let aFs=8;ctx.font=aFs+'px sans-serif';
-      while(ctx.measureText(l.addr).width>maxAddrW&&aFs>6){aFs-=0.2;ctx.font=aFs+'px sans-serif';}
+      let aFs=LOC_AD_FS;
+      ctx.font=aFs+'px sans-serif';
+      // 最大8pxに上げてみて収まれば使う
+      aFs=8;ctx.font=aFs+'px sans-serif';
+      while(ctx.measureText(l.addr).width>maxAddrW&&aFs>5.5){aFs-=0.2;ctx.font=aFs+'px sans-serif';}
       let adr=l.addr;
       while(ctx.measureText(adr).width>maxAddrW&&adr.length>2)adr=adr.slice(0,-1);
       if(adr!==l.addr)adr+='…';
-      ctx.fillStyle='#B09880';ctx.textBaseline='top';
-      ctx.fillText(adr,lx+5,nextY);
+      ctx.fillStyle='#B09880';ctx.textAlign='left';
+      ctx.fillText(adr,lx+4,line2Y);
     }
   });
 
-  // スタッフ募集
-  let recTop=listTop+locRows*LOC_CELL_H+6;
-  const recH=62;
-  const qrSize=recH-8;  // QRサイズを先に定義
+  // ===== スタッフ募集枠 =====
+  // 場所一覧のロウ数を実際のCELL_H_CALCで再計算
+  const actualLocH=locRows*CELL_H_CALC;
+  let recTop=listTop+actualLocH+6;
+  const recH=64;
+  const qrSize=recH-8;
   _rrect(ctx,14,recTop,cW-28,recH,6,'#FDF0D8','#C9A882',0.8);
 
-  // テキストを左寄り配置（右端にQR、間に空白）
-  const textX=(14+8+cW-14-qrSize-16)/2;
-  ctx.fillStyle=BROWN;ctx.font='bold 13px sans-serif';ctx.textAlign='center';ctx.textBaseline='top';
-  ctx.fillText('販売スタッフ募集中！！',textX,recTop+6);
-  ctx.fillStyle=TXT;ctx.font='9px sans-serif';
-  ctx.fillText('詳しくはスタッフまたはインスタグラムの',textX,recTop+22);
-  ctx.fillText('ダイレクトメールでお問い合わせください。',textX,recTop+33);
-  ctx.fillStyle=MUTED;ctx.font='8px sans-serif';
-  ctx.fillText('https://www.instagram.com/100g_coffee/',textX,recTop+46);
+  // QRコード：枠の中央やや左寄り（テキストブロックと均等に）
+  // 枠内を左テキスト + 中央空白(赤枠) + 右QR の3分割
+  // テキスト幅≒240px、QR≒56px、残り≒枠幅-両端28-テキスト-QR-余白
+  const recInnerW=cW-28;
+  const textBlockW=Math.floor(recInnerW*0.52); // 左52%をテキスト
+  const qrBlockW=qrSize+8;                     // QRブロック幅
+  const gapW=recInnerW-textBlockW-qrBlockW;    // 中央の空白（赤枠位置）
+  const textCx=14+textBlockW/2;                // テキスト中心X
+  const qrX=14+textBlockW+gapW;               // QR左端X
 
-  // QRコード（右端）
+  ctx.fillStyle=BROWN;ctx.font='bold 13px sans-serif';ctx.textAlign='center';ctx.textBaseline='top';
+  ctx.fillText('販売スタッフ募集中！！',textCx,recTop+6);
+  ctx.fillStyle=TXT;ctx.font='9px sans-serif';
+  ctx.fillText('詳しくはスタッフまたはインスタグラムの',textCx,recTop+22);
+  ctx.fillText('ダイレクトメールでお問い合わせください。',textCx,recTop+33);
+  ctx.fillStyle=MUTED;ctx.font='8px sans-serif';
+  ctx.fillText('https://www.instagram.com/100g_coffee/',textCx,recTop+46);
+
+  // QRコード描画
   function drawQR(){
-    ctx.drawImage(_QR_IMG,cW-14-qrSize,recTop+4,qrSize,qrSize);
+    ctx.drawImage(_QR_IMG,qrX,recTop+4,qrSize,qrSize);
   }
   if(_QR_IMG.complete&&_QR_IMG.naturalWidth>0){drawQR();}
   else{_QR_IMG.onload=drawQR;}
