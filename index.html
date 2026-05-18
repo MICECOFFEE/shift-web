@@ -1480,31 +1480,10 @@ function generate(){
 }
 
 /* ===== シフト表描画（手動編集対応） ===== */
-function syncTableColWidths(){
-  // スタッフ別テーブルの実際の列幅を場所別テーブルに適用
-  const stTable=document.querySelector('#staff-table-wrap table.sg');
-  const locTable=document.querySelector('#loc-table-wrap table.sg');
-  if(!stTable||!locTable)return;
-  const stCols=stTable.querySelectorAll('col');
-  // 場所別にcolgroupがなければ生成
-  let locCG=locTable.querySelector('colgroup');
-  if(!locCG){locCG=document.createElement('colgroup');locTable.prepend(locCG);}
-  // スタッフ別のth幅を取得して場所別のcolgroupに反映
-  const stThs=stTable.querySelectorAll('thead tr th');
-  // 既存col要素を一旦クリア
-  locCG.innerHTML='';
-  stThs.forEach(th=>{
-    const col=document.createElement('col');
-    col.style.width=th.offsetWidth+'px';
-    locCG.appendChild(col);
-  });
-}
 function setupScrollSync(){
   const loc=document.getElementById('loc-table-wrap');
   const st=document.getElementById('staff-table-wrap');
   if(!loc||!st)return;
-  // 列幅をスタッフ別→場所別に同期
-  syncTableColWidths();
   // 既存リスナーの重複防止
   if(loc._syncHandler){loc.removeEventListener('scroll',loc._syncHandler);}
   if(st._syncHandler){st.removeEventListener('scroll',st._syncHandler);}
@@ -1555,14 +1534,6 @@ function renderResult(keepScroll){
   }));
   const avg=staff.length?(staff.reduce((a,s)=>a+Object.values(schedule[s.id]||{}).filter(v=>v).length,0)/staff.length).toFixed(1):'0';
 
-  const hdrs=Array.from({length:days},(_,i)=>{
-    const d=i+1,dw=DOW[new Date(y,m-1,d).getDay()];
-    return`<th style="position:sticky;top:0;background:#f5f5f0;z-index:2;${dw==='日'||dw==='土'?'color:#c0392b;':''}">${d}<br><span style="font-size:9px;">${dw}</span></th>`;
-  }).join('');
-
-  // スタッフ略称の最大文字数からセル幅を決定（両テーブル共通）
-  // スタッフ別テーブルはcolgroupなし（自然幅）、場所別はDOM描画後に幅を同期
-  const colgroup='';
 
   // 場所別：各場所の出店日数（計）と月間総出店日数
   const locRows=locs.map(l=>{
@@ -1631,6 +1602,25 @@ function renderResult(keepScroll){
     ?`<div class="ok-box" id="edit-msg">${prevEditMsg.textContent}</div>`
     :`<div class="ok-box" style="display:none;" id="edit-msg"></div>`;
 
+  // 各日のスタッフ別セル最大文字数を計算して日付ヘッダの min-width を決定
+  const dayMaxLen=Array.from({length:days},(_,i)=>{
+    const d=i+1;
+    return Math.max(2,...staff.map(s=>{
+      const v=(lastSchedule[s.id]||{})[d];
+      if(!v)return 2;
+      const car=(carDailyOverride[s.id]||{})[d]!==undefined?(carDailyOverride[s.id]||{})[d]:(s.carNo||null);
+      const carLabel=car?'①':''; // 号車記号1文字分
+      const abbr=locAbbrByName(v);
+      return (carLabel?1:0)+abbr.length;
+    }));
+  });
+  // 最大文字数→px変換（日本語1文字≒11px, パディング込み）
+  const hdrs=Array.from({length:days},(_,i)=>{
+    const d=i+1,dw=DOW[new Date(y,m-1,d).getDay()];
+    const minW=Math.max(28,dayMaxLen[i]*11+10)+'px';
+    return`<th style="position:sticky;top:0;background:#f5f5f0;z-index:2;min-width:${minW};${dw==='日'||dw==='土'?'color:#c0392b;':''}">${d}<br><span style="font-size:9px;">${dw}</span></th>`;
+  }).join('');
+
   document.getElementById('result-area').innerHTML=`
     <div class="metrics">
       <div class="metric"><div class="metric-label">スタッフ数</div><div class="metric-val">${staff.length}名</div></div>
@@ -1649,7 +1639,6 @@ function renderResult(keepScroll){
       </div>
       <div id="loc-table-wrap" style="overflow-x:auto;max-height:340px;overflow-y:auto;">
         <table class="sg" style="border-collapse:collapse;">
-          ${colgroup}
           <thead><tr>
             <th class="col-name" style="position:sticky;top:0;left:0;z-index:3;background:#f5f5f0;text-align:left;">場所</th>
             ${hdrs}
@@ -1667,7 +1656,6 @@ function renderResult(keepScroll){
       </div>
       <div id="staff-table-wrap" style="overflow-x:auto;max-height:400px;overflow-y:auto;">
         <table class="sg" style="border-collapse:collapse;">
-          ${colgroup}
           <thead><tr>
             <th class="col-name" style="position:sticky;top:0;left:0;z-index:3;background:#f5f5f0;text-align:left;">名前</th>
             ${hdrs}
