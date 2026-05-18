@@ -1480,10 +1480,31 @@ function generate(){
 }
 
 /* ===== シフト表描画（手動編集対応） ===== */
+function syncTableColWidths(){
+  // スタッフ別テーブルの実際の列幅を場所別テーブルに適用
+  const stTable=document.querySelector('#staff-table-wrap table.sg');
+  const locTable=document.querySelector('#loc-table-wrap table.sg');
+  if(!stTable||!locTable)return;
+  const stCols=stTable.querySelectorAll('col');
+  // 場所別にcolgroupがなければ生成
+  let locCG=locTable.querySelector('colgroup');
+  if(!locCG){locCG=document.createElement('colgroup');locTable.prepend(locCG);}
+  // スタッフ別のth幅を取得して場所別のcolgroupに反映
+  const stThs=stTable.querySelectorAll('thead tr th');
+  // 既存col要素を一旦クリア
+  locCG.innerHTML='';
+  stThs.forEach(th=>{
+    const col=document.createElement('col');
+    col.style.width=th.offsetWidth+'px';
+    locCG.appendChild(col);
+  });
+}
 function setupScrollSync(){
   const loc=document.getElementById('loc-table-wrap');
   const st=document.getElementById('staff-table-wrap');
   if(!loc||!st)return;
+  // 列幅をスタッフ別→場所別に同期
+  syncTableColWidths();
   // 既存リスナーの重複防止
   if(loc._syncHandler){loc.removeEventListener('scroll',loc._syncHandler);}
   if(st._syncHandler){st.removeEventListener('scroll',st._syncHandler);}
@@ -1540,11 +1561,8 @@ function renderResult(keepScroll){
   }).join('');
 
   // スタッフ略称の最大文字数からセル幅を決定（両テーブル共通）
-  const maxAbbrLen=Math.max(...staff.map(s=>(s.abbr||s.name.slice(0,4)).length),2);
-  const dayColW=Math.max(30,maxAbbrLen*8+12)+'px';
-  const nameColW='90px';
-  const totalColW='32px';
-  const colgroup=`<colgroup><col style="width:${nameColW}">${Array(days).fill(`<col style="width:${dayColW}">`).join('')}<col style="width:${totalColW}"></colgroup>`;
+  // スタッフ別テーブルはcolgroupなし（自然幅）、場所別はDOM描画後に幅を同期
+  const colgroup='';
 
   // 場所別：各場所の出店日数（計）と月間総出店日数
   const locRows=locs.map(l=>{
