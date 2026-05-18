@@ -50,10 +50,10 @@ input:focus,select:focus{outline:none;border-color:#534AB7;}
 .ok-box{background:#E1F5EE;border:0.5px solid #9FE1CB;border-radius:8px;padding:10px 14px;font-size:12px;color:#085041;margin-bottom:10px;}
 .shift-grid{overflow-x:auto;}
 table.sg{border-collapse:collapse;table-layout:fixed;}
-.sg th,.sg td{padding:5px 6px;font-size:11px;border:0.5px solid #e5e5e0;white-space:nowrap;text-align:center;width:34px;min-width:34px;max-width:34px;}
+.sg th,.sg td{padding:5px 6px;font-size:11px;border:0.5px solid #e5e5e0;white-space:nowrap;text-align:center;}
 .sg th{background:#f5f5f0;font-weight:500;color:#666;}
-.sg th.col-name,.sg td.col-name{text-align:left;width:84px;min-width:84px;max-width:84px;}
-.sg th.col-total,.sg td.col-total{width:32px;min-width:32px;max-width:32px;}
+.sg th.col-name,.sg td.col-name{text-align:left;}
+.sg th.col-total,.sg td.col-total{}
 .c-work{background:#E1F5EE;color:#085041;font-weight:500;}
 .c-off{color:#ccc;}.c-req-off{background:#FCEBEB;color:#A32D2D;}.c-hol{background:#f5f5f0;color:#bbb;}.c-unassigned{background:#FAEEDA;color:#633806;}
 .dow-chips{display:flex;gap:5px;flex-wrap:wrap;}
@@ -1539,6 +1539,13 @@ function renderResult(keepScroll){
     return`<th style="position:sticky;top:0;background:#f5f5f0;z-index:2;${dw==='日'||dw==='土'?'color:#c0392b;':''}">${d}<br><span style="font-size:9px;">${dw}</span></th>`;
   }).join('');
 
+  // スタッフ略称の最大文字数からセル幅を決定（両テーブル共通）
+  const maxAbbrLen=Math.max(...staff.map(s=>(s.abbr||s.name.slice(0,4)).length),2);
+  const dayColW=Math.max(30,maxAbbrLen*8+12)+'px';
+  const nameColW='90px';
+  const totalColW='32px';
+  const colgroup=`<colgroup><col style="width:${nameColW}">${Array(days).fill(`<col style="width:${dayColW}">`).join('')}<col style="width:${totalColW}"></colgroup>`;
+
   // 場所別：各場所の出店日数（計）と月間総出店日数
   const locRows=locs.map(l=>{
     const candDays=(locDates[l.id]||[]);
@@ -1624,6 +1631,7 @@ function renderResult(keepScroll){
       </div>
       <div id="loc-table-wrap" style="overflow-x:auto;max-height:340px;overflow-y:auto;">
         <table class="sg" style="border-collapse:collapse;">
+          ${colgroup}
           <thead><tr>
             <th class="col-name" style="position:sticky;top:0;left:0;z-index:3;background:#f5f5f0;text-align:left;">場所</th>
             ${hdrs}
@@ -1641,6 +1649,7 @@ function renderResult(keepScroll){
       </div>
       <div id="staff-table-wrap" style="overflow-x:auto;max-height:400px;overflow-y:auto;">
         <table class="sg" style="border-collapse:collapse;">
+          ${colgroup}
           <thead><tr>
             <th class="col-name" style="position:sticky;top:0;left:0;z-index:3;background:#f5f5f0;text-align:left;">名前</th>
             ${hdrs}
