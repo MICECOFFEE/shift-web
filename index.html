@@ -22,7 +22,7 @@ header h1{font-size:17px;font-weight:500;flex:1;}
 .item-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:0.5px solid #f0f0ea;flex-wrap:wrap;}
 .item-row:last-child{border-bottom:none;}
 .badge{font-size:11px;padding:2px 8px;border-radius:99px;font-weight:500;}
-.b-full{background:#E6F1FB;color:#0C447C;}.b-mgr{background:#E1F5EE;color:#085041;}.b-part{background:#FAEEDA;color:#633806;}.b-loc{background:#EEEDFE;color:#3C3489;}
+.b-full{background:#E6F1FB;color:#0C447C;}.b-mgr{background:#E1F5EE;color:#085041;}.b-part{background:#FAEEDA;color:#633806;}.b-loc{background:#EEEDFE;color:#3C3489;}.b-trainee{background:#F3E8FF;color:#6B21A8;}
 .av{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;flex-shrink:0;}
 .av-full{background:#E6F1FB;color:#0C447C;}.av-mgr{background:#E1F5EE;color:#085041;}.av-part{background:#FAEEDA;color:#633806;}.av-loc{background:#EEEDFE;color:#3C3489;}
 .muted{font-size:12px;color:#888;}
@@ -231,7 +231,7 @@ table.sg{border-collapse:collapse;min-width:100%;}
         <div id="staff-list"></div>
         <div class="row" style="margin-top:14px;">
           <input type="text" id="sn" placeholder="名前" style="width:96px;"/>
-          <select id="sr"><option value="mgr">マネージャー</option><option value="full" selected>フルタイム</option><option value="part">パートタイム</option></select>
+          <select id="sr"><option value="mgr">マネージャー</option><option value="full" selected>フルタイム</option><option value="part">パートタイム</option><option value="trainee">研修中</option></select>
           <input type="number" id="smx" value="20" min="1" max="31" style="width:66px;" title="最大出勤日数"/>
           <input type="number" id="smc" value="5" min="1" max="10" style="width:66px;" title="連続上限日数"/>
           <button class="btn btn-primary" onclick="addStaff()">追加</button>
@@ -666,7 +666,7 @@ function showLocRangePanel(locId,days,tdEl){
       if(!lastLocDates[locId])lastLocDates[locId]=[];
       days.forEach(d=>{
         const busy=locs.some(ol=>ol.id!==locId&&(lastAssignments[ol.id]||{})[d]===s.id);
-        if(busy){skipped++;return;}
+        if(busy&&s.role!=='trainee'){skipped++;return;}
         const prev=(lastAssignments[locId]||{})[d];
         if(prev&&prev>0&&lastSchedule[prev])delete lastSchedule[prev][d];
         lastAssignments[locId][d]=s.id;
@@ -733,7 +733,8 @@ function showStaffRangePanel(sid,days,tdEl){
       if(!lastSchedule[sid])lastSchedule[sid]={};
       days.forEach(d=>{
         const busy=locs.some(ol=>ol.id!==l.id&&(lastAssignments[ol.id]||{})[d]===sid);
-        if(busy){skipped++;return;}
+        const sObj=staff.find(x=>x.id===sid);
+        if(busy&&sObj?.role!=='trainee'){skipped++;return;}
         const prevLoc=lastSchedule[sid]?.[d];
         if(prevLoc){
           const pl=locs.find(x=>x.name===prevLoc);
@@ -803,7 +804,7 @@ function normalizeData(d){
   // staffのフィールドを数値化
   if(Array.isArray(d.staff)){
     d.staff=d.staff.map((s,i)=>({
-      id:Number(s.id),name:String(s.name||''),role:s.role||'full',
+      id:Number(s.id),name:String(s.name||''),role:['mgr','full','part','trainee'].includes(s.role)?s.role:'full',
       maxDays:Number(s.maxDays)||20,maxConsec:Number(s.maxConsec)||5,
       prefDows:Array.isArray(s.prefDows)?s.prefDows.map(Number):[],
       ngDows:Array.isArray(s.ngDows)?s.ngDows.map(Number):[],
@@ -1171,7 +1172,7 @@ function importStaff(rows){
   rows.forEach(r=>{
     if(!r[0])return;
     if(staff.find(s=>s.name===r[0])){skipped++;return;}
-    const role=['full','mgr','part'].includes(r[1])?r[1]:'full';
+    const role=['full','mgr','part','trainee'].includes(r[1])?r[1]:'full';
     staff.push({id:nextSid++,name:r[0],role,maxDays:parseInt(r[2])||20,maxConsec:parseInt(r[3])||5,prefDows:parseDows(r[4]),ngDows:parseDows(r[5])});
     added++;
   });
@@ -1222,7 +1223,7 @@ function importLoc(rows){
 /* ===== タブ ===== */
 const avCls=r=>'av-'+r;
 const bCls=r=>'b-'+r;
-const roleLabel=r=>r==='mgr'?'マネージャー':r==='full'?'フルタイム':'パートタイム';
+const roleLabel=r=>r==='mgr'?'マネージャー':r==='full'?'フルタイム':r==='trainee'?'研修中':'パートタイム';
 const initials=n=>{const p=n.trim().split(/[\s　]+/);return p.length>=2?p[0][0]+p[1][0]:n.slice(0,2);};
 const STAFF_COLORS=['#4CAF50','#2196F3','#FF5722','#9C27B0','#FF9800','#00BCD4','#E91E63','#795548','#607D8B','#F44336','#3F51B5','#009688'];
 const staffAbbr=s=>s.abbr||s.name.slice(0,2);
@@ -1280,6 +1281,15 @@ function renderStaff(){
       <span class="expand-toggle" onclick="toggleExpand(${s.id})">詳細 ▾</span>
     </div>
     <div class="staff-expand" id="expand-${s.id}">
+      <div class="row" style="margin-bottom:10px;gap:10px;">
+        <span class="muted">タイプ：</span>
+        <select onchange="updateStaff(${s.id},'role',this.value);renderStaff();document.getElementById('expand-${s.id}').classList.add('open');" style="padding:4px 8px;border-radius:6px;border:1px solid #ddd;">
+          <option value="mgr" ${s.role==='mgr'?'selected':''}>マネージャー</option>
+          <option value="full" ${s.role==='full'?'selected':''}>フルタイム</option>
+          <option value="part" ${s.role==='part'?'selected':''}>パートタイム</option>
+          <option value="trainee" ${s.role==='trainee'?'selected':''}>研修中</option>
+        </select>
+      </div>
       <div class="row" style="margin-bottom:10px;gap:10px;">
         <span class="muted">略称：</span>
         <input type="text" value="${ab}" maxlength="4" style="width:68px;" placeholder="2-4字" onchange="updateStaff(${s.id},'abbr',this.value);renderStaff();document.getElementById('expand-${s.id}').classList.add('open');"/>
@@ -1705,20 +1715,22 @@ function openStaffEdit(sid,day,tdEl){
     locs.filter(l=>lastAssignments[l.id][day]&&lastAssignments[l.id][day]!==sid)
       .map(l=>l.id)
   );
+  const isTrainee=s?.role==='trainee';
   openEditPanel({
-    title:`${s?.name||''} ${day}日`,
+    title:`${s?.name||''} ${day}日${isTrainee?' 🔰':''}`,
     currentVal:currentLoc,
     options:[
       {label:'出勤なし',value:''},
       ...availLocs.map(l=>({
         label:l.name,
         value:l.name,
-        disabled:busyLocs.has(l.id)
+        disabled:isTrainee?false:busyLocs.has(l.id),
+        note:(!isTrainee&&busyLocs.has(l.id))?'割当済':isTrainee&&busyLocs.has(l.id)?'研修同行':undefined
       })),
       ...locs.filter(l=>!availLocs.includes(l)).map(l=>({
         label:l.name+'（候補外）',
         value:l.name,
-        disabled:busyLocs.has(l.id)
+        disabled:isTrainee?false:busyLocs.has(l.id)
       }))
     ],
     onSelect:(val)=>applyStaffEdit(sid,day,val),
@@ -1806,15 +1818,16 @@ function applyStaffEdit(sid,day,locName){
       if(!lastLocDates[newLoc.id])lastLocDates[newLoc.id]=[];
       if(!lastSchedule[sid])lastSchedule[sid]={};
 
-      // step2: 新場所の現在の担当者を解除
+      // step2: 新場所の現在の担当者を解除（研修中は既存割当を消さない）
+      const sObj=staff.find(x=>x.id===sid);
       const prevSidAtLoc=lastAssignments[newLoc.id][day];
-      if(prevSidAtLoc&&prevSidAtLoc>0){
+      if(prevSidAtLoc&&prevSidAtLoc>0&&sObj?.role!=='trainee'){
         if(!lastSchedule[prevSidAtLoc])lastSchedule[prevSidAtLoc]={};
         delete lastSchedule[prevSidAtLoc][day];
       }
 
-      // step3: 双方向に割り当て
-      lastAssignments[newLoc.id][day]=sid;   // 場所→スタッフ
+      // step3: 双方向に割り当て（研修中は lastAssignments は上書きしない）
+      if(sObj?.role!=='trainee') lastAssignments[newLoc.id][day]=sid;
       lastSchedule[sid][day]=locName;         // スタッフ→場所
 
       // step4: lastLocDatesに日付を追加（場所別表に表示されるように）
