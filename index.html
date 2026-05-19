@@ -413,6 +413,7 @@ const DOW_MAP={日:0,月:1,火:2,水:3,木:4,金:5,土:6};
 const LS_KEY='shift_app_v1';
 let curTab=0,staff=[],locs=[],priorities={},wishes={},candidates={},nextSid=12,nextLid=1;
 let lastSchedule=null,lastAssignments=null,lastLocDates=null,lastMonthInfo=null,saveTimer=null;
+let traineeAssignments={}; // {locId:{day:[sid,...]}}
 let backupSchedule=null,backupAssignments=null,backupLocDates=null,backupMonthInfo=null;
 let selLocId=null;
 let carDailyOverride={}; // {スタッフID: {日付: 号車番号}}
@@ -780,7 +781,7 @@ function saveAll(){
       tmonth:document.getElementById('tmonth').value,
       lastSchedule,lastAssignments,lastLocDates,lastMonthInfo,
       backupSchedule,backupAssignments,backupLocDates,backupMonthInfo,
-      carDailyOverride
+      carDailyOverride,traineeAssignments
     };
     if(window._saveToFirestore) window._saveToFirestore(data);
     showSaved();
@@ -864,6 +865,15 @@ function normalizeData(d){
     Object.entries(d.lastLocDates).forEach(([lid,dlist])=>{nl[Number(lid)]=Array.isArray(dlist)?dlist.map(Number):[];});
     d.lastLocDates=nl;
   }
+  // traineeAssignments のキーを数値化
+  if(d.traineeAssignments){
+    const nt={};
+    Object.entries(d.traineeAssignments).forEach(([lid,dmap])=>{
+      nt[Number(lid)]={};
+      Object.entries(dmap).forEach(([day,sids])=>{ nt[Number(lid)][Number(day)]=Array.isArray(sids)?sids.map(Number):[]; });
+    });
+    d.traineeAssignments=nt;
+  }
   return d;
 }
 
@@ -880,7 +890,7 @@ function clearAll(){
   if(!confirm('すべてリセットしますか？スタッフはデフォルト11名に戻ります。シフト表も消去されます。'))return;
   localStorage.removeItem(LS_KEY);
   staff=JSON.parse(JSON.stringify(DEFAULT_STAFF));locs=[];priorities={};wishes={};candidates={};nextSid=12;nextLid=1;
-  lastSchedule=null;lastAssignments=null;lastLocDates=null;lastMonthInfo=null;
+  lastSchedule=null;lastAssignments=null;lastLocDates=null;lastMonthInfo=null;traineeAssignments={};
   backupSchedule=null;backupAssignments=null;backupLocDates=null;backupMonthInfo=null;
   document.getElementById('result-area').innerHTML='<div style="text-align:center;padding:3rem;color:#888;"><p style="margin-bottom:1rem;">設定が完了したらシフトを自動生成できます</p><button class="btn btn-primary" onclick="generate()">シフトを自動生成</button></div>';
   saveAll();go('staff');renderStaff();renderLocs();renderPriority();
@@ -942,10 +952,11 @@ function importJSON(e){
         if(d.lastSchedule&&d.lastAssignments&&d.lastLocDates&&d.lastMonthInfo){
           lastSchedule=d.lastSchedule;
           lastAssignments=d.lastAssignments;
+          traineeAssignments=d.traineeAssignments||{};
           lastLocDates=d.lastLocDates;
           lastMonthInfo=d.lastMonthInfo;
         }else{
-          lastSchedule=null;lastAssignments=null;lastLocDates=null;lastMonthInfo=null;
+          lastSchedule=null;lastAssignments=null;lastLocDates=null;lastMonthInfo=null;traineeAssignments={};
         }
         backupSchedule=d.backupSchedule||null;
         backupAssignments=d.backupAssignments||null;
@@ -1545,9 +1556,14 @@ function renderResult(keepScroll){
       const sid=(assignments[l.id]||{})[d];
       if(sid===-1)return`<td class="c-unassigned" style="cursor:pointer;" onclick="clickLocCell(${l.id},${d},this,event)" title="クリック変更 / Shift+クリックで範囲選択">-</td>`;
       const s=sid?staff.find(x=>x.id===sid):null;
-      const label=s?staffAbbr(s):'未';
+      // 研修中スタッフを最大1名追加表示
+      const tArr=(traineeAssignments[l.id]?.[d]||[]).filter(tid=>tid!==sid);
+      const tStaff=tArr.length>0?staff.find(x=>x.id===tArr[0]):null;
+      const mainLabel=s?staffAbbr(s):'未';
+      const label=tStaff?`${mainLabel}<span style="font-size:9px;color:#6B21A8;">+${staffAbbr(tStaff)}</span>`:mainLabel;
       const cls=s?'c-work':'c-unassigned';
-      return`<td class="${cls}" style="cursor:pointer;" onclick="clickLocCell(${l.id},${d},this,event)" title="${s?s.name:'未割当'} / Shift+クリックで範囲選択">${label}</td>`;
+      const titleStr=(s?s.name:'未割当')+(tStaff?`+${tStaff.name}(研修)`:'');
+      return`<td class="${cls}" style="cursor:pointer;" onclick="clickLocCell(${l.id},${d},this,event)" title="${titleStr} / Shift+クリックで範囲選択">${label}</td>`;
     }).join('');
     return`<tr>
       <td class="col-name" style="position:sticky;left:0;z-index:1;background:#EEEDFE;color:#3C3489;font-weight:500;white-space:nowrap;">${l.name}</td>
@@ -1712,11 +1728,13 @@ function openLocEdit(locId,day,tdEl){
       ...staff.map(s=>{
         const isOtherLoc=locs.some(l=>l.id!==locId&&lastAssignments[l.id][day]===s.id);
         const hasWishOff=(wishes[s.id]||{})[day]==='off';
+        const isTrainee=s.role==='trainee';
+        const traineeHere=(traineeAssignments[locId]?.[day]||[]).includes(s.id);
         return{
           label:s.name,
           value:s.id,
-          disabled:isOtherLoc||hasWishOff,
-          note:hasWishOff?'希望休':isOtherLoc?'他場所':''
+          disabled:hasWishOff||(isOtherLoc&&!isTrainee),
+          note:hasWishOff?'希望休':isOtherLoc&&isTrainee?'研修同行':isOtherLoc?'他場所':traineeHere?'研修中(割当済)':''
         };
       })
     ],
@@ -1792,25 +1810,106 @@ function openEditPanel({title,currentVal,options,onSelect,tdEl}){
 
 /* 場所表からの変更適用 */
 function applyLocEdit(locId,day,newVal){
-  // lastAssignments・lastLocDatesを初期化（未存在の場合）
   if(!lastAssignments[locId])lastAssignments[locId]={};
   if(!lastLocDates[locId])lastLocDates[locId]=[];
-  const prevSid=lastAssignments[locId][day];
-  if(prevSid&&prevSid>0&&lastSchedule[prevSid])delete lastSchedule[prevSid][day];
-  const resolved=newVal===''?null:newVal;
-  lastAssignments[locId][day]=resolved;
-  if(resolved&&resolved>0){
+  if(!traineeAssignments[locId])traineeAssignments[locId]={};
+
+  const resolved=newVal===''?null:(newVal===-1?-1:Number(newVal));
+  const sObj=resolved>0?staff.find(x=>x.id===resolved):null;
+  const isTrainee=sObj?.role==='trainee';
+  const locName=locs.find(l=>l.id===locId)?.name||'';
+
+  if(isTrainee && resolved>0){
+    // 研修中スタッフ：traineeAssignmentsに追加（重複チェック付き）
+    if(!traineeAssignments[locId][day])traineeAssignments[locId][day]=[];
+    const arr=traineeAssignments[locId][day];
+    if(!arr.includes(resolved)){
+      const mainSid=lastAssignments[locId][day];
+      const totalCount=(mainSid&&mainSid>0?1:0)+arr.length;
+      if(totalCount>=2){
+        // 3名以上になる場合は誰を外すか確認
+        confirmTraineeOverflow(locId,day,resolved,locName);
+        return;
+      }
+      arr.push(resolved);
+    }
     if(!lastSchedule[resolved])lastSchedule[resolved]={};
-    lastSchedule[resolved][day]=locs.find(l=>l.id===locId)?.name||'';
-    // lastLocDatesにこの日が含まれていなければ追加
-    if(!lastLocDates[locId].includes(day)){
-      lastLocDates[locId].push(day);
-      lastLocDates[locId].sort((a,b)=>a-b);
+    lastSchedule[resolved][day]=locName;
+    if(!lastLocDates[locId].includes(day)){lastLocDates[locId].push(day);lastLocDates[locId].sort((a,b)=>a-b);}
+  } else {
+    // 通常スタッフ：既存の主担当を置き換え
+    const prevSid=lastAssignments[locId][day];
+    if(prevSid&&prevSid>0&&lastSchedule[prevSid])delete lastSchedule[prevSid][day];
+    lastAssignments[locId][day]=resolved;
+    if(resolved&&resolved>0){
+      if(!lastSchedule[resolved])lastSchedule[resolved]={};
+      lastSchedule[resolved][day]=locName;
+      if(!lastLocDates[locId].includes(day)){lastLocDates[locId].push(day);lastLocDates[locId].sort((a,b)=>a-b);}
+    }
+    // 出店なし(-1)またはクリアの場合、研修中スタッフも全解除
+    if(!resolved||resolved===-1){
+      const tArr=traineeAssignments[locId][day]||[];
+      tArr.forEach(tid=>{if(lastSchedule[tid])delete lastSchedule[tid][day];});
+      traineeAssignments[locId][day]=[];
     }
   }
   saveAll();
-  showEditMsg(`${day}日 ${locs.find(l=>l.id===locId)?.name||''} → ${resolved>0?staff.find(x=>x.id===resolved)?.name||'':resolved===-1?'出店なし':'未割当'} に変更`);
+  showEditMsg(`${day}日 ${locName} → ${sObj?.name||''}${isTrainee?'(研修)':''} に変更`);
   renderResult(true);
+}
+
+/* 3名以上になる場合に誰を外すか確認するモーダル */
+function confirmTraineeOverflow(locId,day,newSid,locName){
+  const existing=document.getElementById('cell-overlay');
+  if(existing)existing.remove();
+  const overlay=document.createElement('div');
+  overlay.id='cell-overlay';
+  overlay.style.cssText='position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;';
+  overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove();});
+  const panel=document.createElement('div');
+  panel.style.cssText='background:white;border-radius:10px;padding:16px 20px;min-width:220px;max-width:300px;box-shadow:0 8px 32px rgba(0,0,0,0.2);';
+  const mainSid=lastAssignments[locId]?.[day];
+  const tArr=(traineeAssignments[locId]?.[day]||[]);
+  const allSids=[...(mainSid&&mainSid>0?[mainSid]:[]),...tArr];
+  const newS=staff.find(x=>x.id===newSid);
+  panel.innerHTML=`<div style="font-weight:600;margin-bottom:8px;font-size:13px;">⚠️ 3名以上になります</div>
+  <div style="font-size:12px;color:#666;margin-bottom:12px;">${day}日 ${locName}<br>誰かを外して <b>${newS?.name||''}</b> を追加しますか？</div>
+  <div style="font-size:12px;margin-bottom:8px;">外すスタッフを選択：</div>`;
+  allSids.forEach(sid=>{
+    const s=staff.find(x=>x.id===sid);
+    const btn=document.createElement('button');
+    btn.className='btn btn-outline';
+    btn.style.cssText='width:100%;margin-bottom:6px;text-align:left;font-size:12px;';
+    btn.textContent=`${s?.name||sid}（${s?.role==='trainee'?'研修中':'通常'}）を外す`;
+    btn.addEventListener('click',()=>{
+      overlay.remove();
+      // 外すスタッフのシフトを解除
+      if(lastAssignments[locId]?.[day]===sid){
+        lastAssignments[locId][day]=null;
+        if(lastSchedule[sid])delete lastSchedule[sid][day];
+      } else {
+        traineeAssignments[locId][day]=(traineeAssignments[locId][day]||[]).filter(x=>x!==sid);
+        if(lastSchedule[sid])delete lastSchedule[sid][day];
+      }
+      // 新研修中スタッフを追加
+      if(!traineeAssignments[locId][day])traineeAssignments[locId][day]=[];
+      traineeAssignments[locId][day].push(newSid);
+      if(!lastSchedule[newSid])lastSchedule[newSid]={};
+      lastSchedule[newSid][day]=locName;
+      saveAll();
+      showEditMsg(`${day}日 ${locName}：${s?.name||''}を外し ${newS?.name||''} に変更`);
+      renderResult(true);
+    });
+    panel.appendChild(btn);
+  });
+  const cancelBtn=document.createElement('button');
+  cancelBtn.className='btn';
+  cancelBtn.style.cssText='width:100%;margin-top:4px;font-size:12px;';
+  cancelBtn.textContent='キャンセル';
+  cancelBtn.addEventListener('click',()=>overlay.remove());
+  panel.appendChild(cancelBtn);
+  overlay.appendChild(panel);
+  document.body.appendChild(overlay);
 }
 
 /* ⑦ スタッフ表からの変更適用 */
@@ -2691,7 +2790,7 @@ async function executeMonthlyUpdate(){
     // 希望休をリセット
     wishes={};
     // シフト表をリセット
-    lastSchedule=null;lastAssignments=null;lastLocDates=null;lastMonthInfo=null;
+    lastSchedule=null;lastAssignments=null;lastLocDates=null;lastMonthInfo=null;traineeAssignments={};
 
     // 翌月に進める
     const[y,m]=archiveKey.split('-').map(Number);
@@ -2837,7 +2936,7 @@ async function resetWishes(){
 /* --- シフト表リセット --- */
 async function resetShiftTable(){
   if(!confirm('シフト表をリセットしますか？（生成済みシフトが消えます）'))return;
-  lastSchedule=null;lastAssignments=null;lastLocDates=null;lastMonthInfo=null;
+  lastSchedule=null;lastAssignments=null;lastLocDates=null;lastMonthInfo=null;traineeAssignments={};
   saveAll();
   document.getElementById('result-area').innerHTML='<div style="text-align:center;padding:3rem;color:#888;"><p style="margin-bottom:1rem;">設定が完了したらシフトを自動生成できます</p><button class="btn btn-primary" onclick="generate()">シフトを自動生成</button></div>';
   setStatus('シフト表をリセットしました');
