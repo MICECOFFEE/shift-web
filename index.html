@@ -1746,27 +1746,29 @@ function openLocEdit(locId,day,tdEl){
 /* ⑦ スタッフ別出勤表のセル編集（スタッフ→場所選択） */
 function openStaffEdit(sid,day,tdEl){
   const s=staff.find(x=>x.id===sid);
+  const isTrainee=s?.role==='trainee';
   const currentLoc=lastSchedule[sid]?.[day]||null;
-  // その日に出店候補の場所一覧
   const availLocs=locs.filter(l=>(lastLocDates[l.id]||[]).includes(day));
   const busyLocs=new Set(
     locs.filter(l=>lastAssignments[l.id][day]&&lastAssignments[l.id][day]!==sid)
       .map(l=>l.id)
   );
   openEditPanel({
-    title:`${s?.name||''} ${day}日`,
+    title:`${s?.name||''} ${day}日${isTrainee?' 🔰':''}`,
     currentVal:currentLoc,
     options:[
       {label:'出勤なし',value:''},
       ...availLocs.map(l=>({
         label:l.name,
         value:l.name,
-        disabled:busyLocs.has(l.id)
+        disabled:isTrainee?false:busyLocs.has(l.id),
+        note:busyLocs.has(l.id)?(isTrainee?'研修同行':'割当済'):''
       })),
       ...locs.filter(l=>!availLocs.includes(l)).map(l=>({
         label:l.name+'（候補外）',
         value:l.name,
-        disabled:busyLocs.has(l.id)
+        disabled:isTrainee?false:busyLocs.has(l.id),
+        note:busyLocs.has(l.id)?(isTrainee?'研修同行':'割当済'):''
       }))
     ],
     onSelect:(val)=>applyStaffEdit(sid,day,val),
@@ -1914,15 +1916,21 @@ function confirmTraineeOverflow(locId,day,newSid,locName){
 
 /* ⑦ スタッフ表からの変更適用 */
 function applyStaffEdit(sid,day,locName){
+  const sObj=staff.find(x=>x.id===sid);
+  const isTrainee=sObj?.role==='trainee';
+
   // step1: スタッフの現在の出勤先を解除
   const prevLocName=lastSchedule[sid]?.[day]||null;
   if(prevLocName){
     const prevLoc=locs.find(l=>l.name===prevLocName);
     if(prevLoc){
       if(!lastAssignments[prevLoc.id])lastAssignments[prevLoc.id]={};
-      // 場所別割当表でそのスタッフが担当している場合のみ解除
       if(lastAssignments[prevLoc.id][day]===sid){
         lastAssignments[prevLoc.id][day]=null;
+      }
+      // traineeAssignmentsからも除去
+      if(traineeAssignments[prevLoc.id]?.[day]){
+        traineeAssignments[prevLoc.id][day]=traineeAssignments[prevLoc.id][day].filter(x=>x!==sid);
       }
     }
     delete lastSchedule[sid][day];
@@ -1933,20 +1941,35 @@ function applyStaffEdit(sid,day,locName){
     if(newLoc){
       if(!lastAssignments[newLoc.id])lastAssignments[newLoc.id]={};
       if(!lastLocDates[newLoc.id])lastLocDates[newLoc.id]=[];
+      if(!traineeAssignments[newLoc.id])traineeAssignments[newLoc.id]={};
       if(!lastSchedule[sid])lastSchedule[sid]={};
 
-      // step2: 新場所の現在の担当者を解除
-      const prevSidAtLoc=lastAssignments[newLoc.id][day];
-      if(prevSidAtLoc&&prevSidAtLoc>0){
-        if(!lastSchedule[prevSidAtLoc])lastSchedule[prevSidAtLoc]={};
-        delete lastSchedule[prevSidAtLoc][day];
+      if(isTrainee){
+        // 研修中：traineeAssignmentsに追加、3名確認
+        if(!traineeAssignments[newLoc.id][day])traineeAssignments[newLoc.id][day]=[];
+        const arr=traineeAssignments[newLoc.id][day];
+        if(!arr.includes(sid)){
+          const mainSid=lastAssignments[newLoc.id][day];
+          const totalCount=(mainSid&&mainSid>0?1:0)+arr.length;
+          if(totalCount>=2){
+            confirmTraineeOverflow(newLoc.id,day,sid,locName);
+            return;
+          }
+          arr.push(sid);
+        }
+        lastSchedule[sid][day]=locName;
+      } else {
+        // 通常：step2 既存担当を解除
+        const prevSidAtLoc=lastAssignments[newLoc.id][day];
+        if(prevSidAtLoc&&prevSidAtLoc>0){
+          if(!lastSchedule[prevSidAtLoc])lastSchedule[prevSidAtLoc]={};
+          delete lastSchedule[prevSidAtLoc][day];
+        }
+        // step3: 双方向に割り当て
+        lastAssignments[newLoc.id][day]=sid;
+        lastSchedule[sid][day]=locName;
       }
 
-      // step3: 双方向に割り当て
-      lastAssignments[newLoc.id][day]=sid;   // 場所→スタッフ
-      lastSchedule[sid][day]=locName;         // スタッフ→場所
-
-      // step4: lastLocDatesに日付を追加（場所別表に表示されるように）
       if(!lastLocDates[newLoc.id].includes(day)){
         lastLocDates[newLoc.id].push(day);
         lastLocDates[newLoc.id].sort((a,b)=>a-b);
