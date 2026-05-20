@@ -49,7 +49,7 @@ input:focus,select:focus{outline:none;border-color:#534AB7;}
 .warn-box{background:#FAEEDA;border:0.5px solid #FAC775;border-radius:8px;padding:10px 14px;font-size:12px;color:#633806;margin-bottom:10px;}
 .ok-box{background:#E1F5EE;border:0.5px solid #9FE1CB;border-radius:8px;padding:10px 14px;font-size:12px;color:#085041;margin-bottom:10px;}
 .shift-grid{overflow-x:auto;}
-table.sg{border-collapse:collapse;table-layout:fixed;}
+table.sg{border-collapse:collapse;}
 .sg th,.sg td{padding:5px 6px;font-size:11px;border:0.5px solid #e5e5e0;white-space:nowrap;text-align:center;}
 .sg th{background:#f5f5f0;font-weight:500;color:#666;}
 .sg th.col-name,.sg td.col-name{text-align:left;}
@@ -437,14 +437,14 @@ function clickCandDay(locId,mkey,day,e){
     const days=getRangeOrSingle(rangeAnchor.cand,day);
     const anchorState=candDayState(locId,mkey,rangeAnchor.cand);
     days.forEach(d=>applyCandState(locId,mkey,d,anchorState));
-    saveAll();renderCandidates();
+    saveAll();renderCandidates();if(lastSchedule)renderResult(true);
   }else{
     rangeAnchor.cand=day;
     // 3択サイクル: none→on→excluded→none
     const cur=candDayState(locId,mkey,day);
     const next=cur==='none'?'on':cur==='on'?'excluded':'none';
     applyCandState(locId,mkey,day,next);
-    saveAll();renderCandidates();
+    saveAll();renderCandidates();if(lastSchedule)renderResult(true);
   }
 }
 
@@ -1611,6 +1611,9 @@ function renderResult(keepScroll){
       const sid=(assignments[l.id]||{})[d];
       if(sid===-1)return`<td class="c-unassigned" style="cursor:pointer;" onclick="clickLocCell(${l.id},${d},this,event)" title="クリック変更 / Shift+クリックで範囲選択">-</td>`;
       const s=sid?staff.find(x=>x.id===sid):null;
+      // 号車取得（carDailyOverride優先、なければcarNo）
+      const car=s?((carDailyOverride[s.id]||{})[d]!==undefined?(carDailyOverride[s.id]||{})[d]:(s.carNo||null)):null;
+      const carLabel=car?circledNum(car):'';
       // traineeAssignmentsの研修中スタッフ（main担当と重複除く）
       const tArr=(traineeAssignments[l.id]?.[d]||[]).filter(tid=>tid!==sid);
       const tStaff=tArr.length>0?staff.find(x=>x.id===tArr[0]):null;
@@ -1619,22 +1622,26 @@ function renderResult(keepScroll){
       const soloExtra=!s&&tArr.length>1?staff.find(x=>x.id===tArr[1]):null;
       let label,cls,titleStr;
       if(soloTrainee){
-        const soloLabel=staffAbbr(soloTrainee);
+        const soloCar=((carDailyOverride[soloTrainee.id]||{})[d]!==undefined?(carDailyOverride[soloTrainee.id]||{})[d]:(soloTrainee.carNo||null));
+        const soloCarLabel=soloCar?circledNum(soloCar):'';
         label=soloExtra
-          ?`<span style="font-size:9px;color:#6B21A8;">🔰${soloLabel}</span><span style="font-size:9px;color:#6B21A8;">+${staffAbbr(soloExtra)}</span>`
-          :`<span style="font-size:9px;color:#6B21A8;">🔰${soloLabel}</span>`;
+          ?`<span style="font-size:9px;color:#6B21A8;">🔰${soloCarLabel}${staffAbbr(soloTrainee)}+${staffAbbr(soloExtra)}</span>`
+          :`<span style="font-size:9px;color:#6B21A8;">🔰${soloCarLabel}${staffAbbr(soloTrainee)}</span>`;
         cls='c-work';
         titleStr=soloTrainee.name+'(研修)'+(soloExtra?`+${soloExtra.name}(研修)`:'');
       } else {
-        const mainLabel=s?staffAbbr(s):'未';
-        label=tStaff?`${mainLabel}<span style="font-size:9px;color:#6B21A8;">+${staffAbbr(tStaff)}</span>`:mainLabel;
+        const mainLabel=s?`${carLabel}${staffAbbr(s)}`:'未';
+        const tCarLabel=tStaff?((carDailyOverride[tStaff.id]||{})[d]!==undefined?(carDailyOverride[tStaff.id]||{})[d]:(tStaff.carNo||null)):null;
+        label=tStaff
+          ?`${mainLabel}<span style="font-size:9px;color:#6B21A8;">+${tCarLabel?circledNum(tCarLabel):''}${staffAbbr(tStaff)}</span>`
+          :mainLabel;
         cls=s?'c-work':'c-unassigned';
-        titleStr=(s?s.name:'未割当')+(tStaff?`+${tStaff.name}(研修)`:'');
+        titleStr=(s?s.name:'未割当')+(tStaff?`+${tStaff.name}(研修)`:'')+(car?` ${circledNum(car)}号車`:'');
       }
-      return`<td class="${cls}" style="cursor:pointer;" onclick="clickLocCell(${l.id},${d},this,event)" title="${titleStr} / Shift+クリックで範囲選択">${label}</td>`;
+      return`<td class="${cls}" style="cursor:pointer;" onclick="clickLocCell(${l.id},${d},this,event)" oncontextmenu="openLocCarSelect(event,${l.id},${d});return false;" title="${titleStr} / 右クリック：号車変更 / Shift+クリックで範囲選択">${label}</td>`;
     }).join('');
     return`<tr>
-      <td class="col-name" style="position:sticky;left:0;z-index:1;background:#EEEDFE;color:#3C3489;font-weight:500;white-space:nowrap;min-width:${nameColW};width:${nameColW};">${l.name}</td>
+      <td class="col-name" style="position:sticky;left:0;z-index:1;background:#EEEDFE;color:#3C3489;font-weight:500;white-space:nowrap;min-width:${nameColW};">${l.name}</td>
       ${cells}
       <td class="col-total" style="font-weight:500;color:#085041;text-align:center;position:sticky;right:0;background:#EEEDFE;">${locTotal}</td></tr>`;
   }).join('');
@@ -1663,7 +1670,7 @@ function renderResult(keepScroll){
       return`<td class="c-off" style="cursor:pointer;" onclick="clickStaffCell(${s.id},${d},this,event)" title="クリックで割り当て">―</td>`;
     }).join('');
     return`<tr>
-      <td class="col-name" style="position:sticky;left:0;z-index:1;background:white;white-space:nowrap;min-width:${nameColW};width:${nameColW};" title="${s.name}">
+      <td class="col-name" style="position:sticky;left:0;z-index:1;background:white;white-space:nowrap;min-width:${nameColW};" title="${s.name}">
         <div style="display:flex;align-items:center;gap:4px;">
           <div style="width:10px;height:10px;border-radius:2px;background:${col};flex-shrink:0;"></div>
           ${s.name}
@@ -1680,7 +1687,7 @@ function renderResult(keepScroll){
     return`<td style="text-align:center;font-size:11px;font-weight:500;background:#f0f0ea;color:#534AB7;">${cnt||''}</td>`;
   }).join('');
   const staffTotalRow=`<tr style="border-top:1px solid #ddd;">
-    <td class="col-name" style="position:sticky;left:0;z-index:1;background:#f0f0ea;font-size:11px;font-weight:500;color:#534AB7;white-space:nowrap;padding:4px 6px;min-width:${nameColW};width:${nameColW};">日別出勤計</td>
+    <td class="col-name" style="position:sticky;left:0;z-index:1;background:#f0f0ea;font-size:11px;font-weight:500;color:#534AB7;white-space:nowrap;padding:4px 6px;min-width:${nameColW};">日別出勤計</td>
     ${staffTotalByDay}
     <td class="col-total" style="text-align:center;font-size:11px;font-weight:500;background:#f0f0ea;color:#534AB7;">${staffGrandTotal}</td></tr>`;
 
@@ -1727,7 +1734,7 @@ function renderResult(keepScroll){
       <div id="loc-table-wrap" style="overflow-x:auto;max-height:340px;overflow-y:auto;">
         <table class="sg">
           <thead><tr>
-            <th class="col-name" style="position:sticky;top:0;left:0;z-index:3;background:#f5f5f0;text-align:left;min-width:${nameColW};width:${nameColW};">場所</th>
+            <th class="col-name" style="position:sticky;top:0;left:0;z-index:3;background:#f5f5f0;text-align:left;min-width:${nameColW};">場所</th>
             ${hdrs}
             <th class="col-total" style="position:sticky;top:0;right:0;background:#f5f5f0;z-index:3;">計</th>
           </tr></thead>
@@ -1744,7 +1751,7 @@ function renderResult(keepScroll){
       <div id="staff-table-wrap" style="overflow-x:auto;max-height:400px;overflow-y:auto;">
         <table class="sg">
           <thead><tr>
-            <th class="col-name" style="position:sticky;top:0;left:0;z-index:3;background:#f5f5f0;text-align:left;min-width:${nameColW};width:${nameColW};">名前</th>
+            <th class="col-name" style="position:sticky;top:0;left:0;z-index:3;background:#f5f5f0;text-align:left;min-width:${nameColW};">名前</th>
             ${hdrs}
             <th class="col-total" style="position:sticky;top:0;background:#f5f5f0;z-index:2;">計</th>
           </tr></thead>
@@ -2612,6 +2619,45 @@ function graduateTrainee(sid, fromDay, newRole){
 }
 
 /* ===== 号車変更パネル ===== */
+/* ===== 場所別割当表：右クリックで号車変更 ===== */
+function openLocCarSelect(e,locId,day){
+  e.preventDefault();
+  const old=document.getElementById('car-select-panel');
+  if(old)old.remove();
+  // この場所・日のmain担当スタッフを取得
+  const sid=lastAssignments[locId]?.[day];
+  if(!sid||sid<=0){
+    // 研修者のみの場合はtraineeAssignmentsから取得
+    const tArr=traineeAssignments[locId]?.[day]||[];
+    if(tArr.length===0)return;
+    openLocCarSelect_forStaff(e,tArr[0],day,locId);
+    return;
+  }
+  openLocCarSelect_forStaff(e,sid,day,locId);
+}
+function openLocCarSelect_forStaff(e,sid,day,locId){
+  const s=staff.find(x=>x.id===sid);
+  if(!s)return;
+  const currentCar=(carDailyOverride[sid]||{})[day]!==undefined?(carDailyOverride[sid]||{})[day]:s.carNo;
+  const locName=locs.find(l=>l.id===locId)?.name||'';
+
+  const panel=document.createElement('div');
+  panel.id='car-select-panel';
+  panel.style.cssText=`position:fixed;z-index:9999;background:white;border:1px solid #ddd;border-radius:10px;padding:12px;box-shadow:0 4px 20px rgba(0,0,0,0.15);min-width:160px;`;
+  panel.style.left=Math.min(e.clientX,window.innerWidth-180)+'px';
+  panel.style.top=Math.min(e.clientY,window.innerHeight-250)+'px';
+  panel.innerHTML=`
+    <div style="font-size:12px;font-weight:500;color:#666;margin-bottom:8px;">${s.name} ${day}日(${locName}) の号車</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-bottom:8px;">
+      ${[1,2,3,4,5,6,7,8].map(n=>`
+        <button onclick="setCarOverride(${sid},${day},${n})" style="padding:6px 2px;border:1px solid ${currentCar===n?'#534AB7':'#ddd'};border-radius:6px;background:${currentCar===n?'#534AB7':'white'};color:${currentCar===n?'white':'#1a1a1a'};cursor:pointer;font-size:14px;">${circledNum(n)}</button>`).join('')}
+    </div>
+    <button onclick="setCarOverride(${sid},${day},null)" style="width:100%;padding:5px;border:1px solid #ddd;border-radius:6px;background:white;cursor:pointer;font-size:12px;color:#888;">デフォルトに戻す</button>
+  `;
+  document.body.appendChild(panel);
+  setTimeout(()=>document.addEventListener('click',()=>{panel.remove();},{once:true}),0);
+}
+
 function openCarSelect(e,sid,day){
   e.preventDefault();
   // 既存パネルを削除
