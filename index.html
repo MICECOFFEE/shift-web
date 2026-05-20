@@ -1505,10 +1505,23 @@ function generate(){
 }
 
 /* ===== シフト表描画（手動編集対応） ===== */
+function syncNameColWidth(){
+  // スタッフ別の名前列幅を場所別の場所列に適用
+  const stNameTh=document.querySelector('#staff-table-wrap th.col-name');
+  const locNameTh=document.querySelector('#loc-table-wrap th.col-name');
+  const locNameTds=document.querySelectorAll('#loc-table-wrap td.col-name');
+  if(!stNameTh||!locNameTh)return;
+  const w=stNameTh.offsetWidth+'px';
+  locNameTh.style.width=w;
+  locNameTh.style.minWidth=w;
+  locNameTds.forEach(td=>{td.style.width=w;td.style.minWidth=w;});
+}
 function setupScrollSync(){
   const loc=document.getElementById('loc-table-wrap');
   const st=document.getElementById('staff-table-wrap');
   if(!loc||!st)return;
+  // 名前列幅を同期
+  syncNameColWidth();
   // 既存リスナーの重複防止
   if(loc._syncHandler){loc.removeEventListener('scroll',loc._syncHandler);}
   if(st._syncHandler){st.removeEventListener('scroll',st._syncHandler);}
