@@ -1506,15 +1506,38 @@ function generate(){
 
 /* ===== シフト表描画（手動編集対応） ===== */
 function syncNameColWidth(){
-  // スタッフ別の名前列幅を場所別の場所列に適用
-  const stNameTh=document.querySelector('#staff-table-wrap th.col-name');
-  const locNameTh=document.querySelector('#loc-table-wrap th.col-name');
-  const locNameTds=document.querySelectorAll('#loc-table-wrap td.col-name');
-  if(!stNameTh||!locNameTh)return;
-  const w=stNameTh.offsetWidth+'px';
-  locNameTh.style.width=w;
-  locNameTh.style.minWidth=w;
-  locNameTds.forEach(td=>{td.style.width=w;td.style.minWidth=w;});
+  // スタッフ別名前列の実幅を取得してcol要素で場所別に適用
+  const stTable=document.querySelector('#staff-table-wrap table.sg');
+  const locTable=document.querySelector('#loc-table-wrap table.sg');
+  if(!stTable||!locTable)return;
+  // スタッフ別の名前列th（最初のth）の実幅を取得
+  const stNameTh=stTable.querySelector('thead th.col-name');
+  if(!stNameTh)return;
+  const w=stNameTh.getBoundingClientRect().width;
+  if(!w)return;
+  // 場所別テーブルのcolgroupの1列目（名前列）を上書き
+  let locCG=locTable.querySelector('colgroup');
+  if(!locCG){
+    locCG=document.createElement('colgroup');
+    locTable.prepend(locCG);
+  }
+  // col要素が足りない場合に補完
+  const stCols=stTable.querySelectorAll('colgroup col');
+  while(locCG.children.length<stCols.length){
+    locCG.appendChild(document.createElement('col'));
+  }
+  // 1列目（名前列）の幅をスタッフ別に合わせる
+  if(locCG.children[0]){
+    locCG.children[0].style.width=Math.ceil(w)+'px';
+    locCG.children[0].style.minWidth=Math.ceil(w)+'px';
+  }
+  // 2列目以降はスタッフ別に合わせる（日付列・計列）
+  stCols.forEach((col,i)=>{
+    if(i===0)return; // 名前列は上で処理済
+    if(!locCG.children[i])return;
+    const sw=col.getBoundingClientRect().width||col.style.width;
+    if(sw)locCG.children[i].style.width=(typeof sw==='number'?Math.ceil(sw)+'px':sw);
+  });
 }
 function setupScrollSync(){
   const loc=document.getElementById('loc-table-wrap');
@@ -1606,7 +1629,7 @@ function renderResult(keepScroll){
       return`<td class="${cls}" style="cursor:pointer;" onclick="clickLocCell(${l.id},${d},this,event)" title="${titleStr} / Shift+クリックで範囲選択">${label}</td>`;
     }).join('');
     return`<tr>
-      <td class="col-name" style="position:sticky;left:0;z-index:1;background:#EEEDFE;color:#3C3489;font-weight:500;white-space:nowrap;">${l.name}</td>
+      <td class="col-name" style="position:sticky;left:0;z-index:1;background:#EEEDFE;color:#3C3489;font-weight:500;white-space:nowrap;min-width:${nameColW};width:${nameColW};">${l.name}</td>
       ${cells}
       <td class="col-total" style="font-weight:500;color:#085041;text-align:center;position:sticky;right:0;background:#EEEDFE;">${locTotal}</td></tr>`;
   }).join('');
@@ -1635,7 +1658,7 @@ function renderResult(keepScroll){
       return`<td class="c-off" style="cursor:pointer;" onclick="clickStaffCell(${s.id},${d},this,event)" title="クリックで割り当て">―</td>`;
     }).join('');
     return`<tr>
-      <td class="col-name" style="position:sticky;left:0;z-index:1;background:white;white-space:nowrap;" title="${s.name}">
+      <td class="col-name" style="position:sticky;left:0;z-index:1;background:white;white-space:nowrap;min-width:${nameColW};width:${nameColW};" title="${s.name}">
         <div style="display:flex;align-items:center;gap:4px;">
           <div style="width:10px;height:10px;border-radius:2px;background:${col};flex-shrink:0;"></div>
           ${s.name}
@@ -1652,7 +1675,7 @@ function renderResult(keepScroll){
     return`<td style="text-align:center;font-size:11px;font-weight:500;background:#f0f0ea;color:#534AB7;">${cnt||''}</td>`;
   }).join('');
   const staffTotalRow=`<tr style="border-top:1px solid #ddd;">
-    <td class="col-name" style="position:sticky;left:0;z-index:1;background:#f0f0ea;font-size:11px;font-weight:500;color:#534AB7;white-space:nowrap;padding:4px 6px;">日別出勤計</td>
+    <td class="col-name" style="position:sticky;left:0;z-index:1;background:#f0f0ea;font-size:11px;font-weight:500;color:#534AB7;white-space:nowrap;padding:4px 6px;min-width:${nameColW};width:${nameColW};">日別出勤計</td>
     ${staffTotalByDay}
     <td class="col-total" style="text-align:center;font-size:11px;font-weight:500;background:#f0f0ea;color:#534AB7;">${staffGrandTotal}</td></tr>`;
 
@@ -1660,6 +1683,10 @@ function renderResult(keepScroll){
   const editMsgHtml=prevEditMsg&&prevEditMsg.style.display!=='none'
     ?`<div class="ok-box" id="edit-msg">${prevEditMsg.textContent}</div>`
     :`<div class="ok-box" style="display:none;" id="edit-msg"></div>`;
+
+  // 名前列幅：スタッフ名の最大文字数から計算（両テーブル共通）
+  const maxNameLen=Math.max(...staff.map(s=>s.name.length), 2);
+  const nameColW=Math.max(72, maxNameLen*13+16)+'px';
 
   // 各日のスタッフ別セル最大文字数を計算して日付ヘッダの min-width を決定
   const dayMaxLen=Array.from({length:days},(_,i)=>{
@@ -1699,7 +1726,7 @@ function renderResult(keepScroll){
       <div id="loc-table-wrap" style="overflow-x:auto;max-height:340px;overflow-y:auto;">
         <table class="sg" style="border-collapse:collapse;">
           <thead><tr>
-            <th class="col-name" style="position:sticky;top:0;left:0;z-index:3;background:#f5f5f0;text-align:left;">場所</th>
+            <th class="col-name" style="position:sticky;top:0;left:0;z-index:3;background:#f5f5f0;text-align:left;min-width:${nameColW};width:${nameColW};">場所</th>
             ${hdrs}
             <th class="col-total" style="position:sticky;top:0;right:0;background:#f5f5f0;z-index:3;">計</th>
           </tr></thead>
@@ -1716,7 +1743,7 @@ function renderResult(keepScroll){
       <div id="staff-table-wrap" style="overflow-x:auto;max-height:400px;overflow-y:auto;">
         <table class="sg" style="border-collapse:collapse;">
           <thead><tr>
-            <th class="col-name" style="position:sticky;top:0;left:0;z-index:3;background:#f5f5f0;text-align:left;">名前</th>
+            <th class="col-name" style="position:sticky;top:0;left:0;z-index:3;background:#f5f5f0;text-align:left;min-width:${nameColW};width:${nameColW};">名前</th>
             ${hdrs}
             <th class="col-total" style="position:sticky;top:0;background:#f5f5f0;z-index:2;">計</th>
           </tr></thead>
