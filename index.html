@@ -805,7 +805,7 @@ function normalizeData(d){
   // staffのフィールドを数値化
   if(Array.isArray(d.staff)){
     d.staff=d.staff.map((s,i)=>({
-      id:Number(s.id),name:String(s.name||''),role:s.role||'full',
+      id:Number(s.id),name:String(s.name||''),role:['mgr','full','part','trainee'].includes(s.role)?s.role:'full',roleHistory:s.roleHistory||{},
       maxDays:Number(s.maxDays)||20,maxConsec:Number(s.maxConsec)||5,
       prefDows:Array.isArray(s.prefDows)?s.prefDows.map(Number):[],
       ngDows:Array.isArray(s.ngDows)?s.ngDows.map(Number):[],
@@ -1232,9 +1232,14 @@ function importLoc(rows){
 }
 
 /* ===== タブ ===== */
+const getRoleOnDay=(s,d)=>{
+  if(!s||!s.roleHistory||Object.keys(s.roleHistory).length===0)return s?.role||'full';
+  const keys=Object.keys(s.roleHistory).map(Number).filter(k=>k<=d).sort((a,b)=>b-a);
+  return keys.length>0?s.roleHistory[keys[0]]:s.role;
+};
 const avCls=r=>'av-'+r;
 const bCls=r=>'b-'+r;
-const roleLabel=r=>r==='mgr'?'マネージャー':r==='full'?'フルタイム':'パートタイム';
+const roleLabel=r=>r==='mgr'?'マネージャー':r==='full'?'フルタイム':r==='trainee'?'研修中':'パートタイム';
 const initials=n=>{const p=n.trim().split(/[\s　]+/);return p.length>=2?p[0][0]+p[1][0]:n.slice(0,2);};
 const STAFF_COLORS=['#4CAF50','#2196F3','#FF5722','#9C27B0','#FF9800','#00BCD4','#E91E63','#795548','#607D8B','#F44336','#3F51B5','#009688'];
 const staffAbbr=s=>s.abbr||s.name.slice(0,2);
@@ -1608,7 +1613,7 @@ function renderResult(keepScroll){
         const car=(carDailyOverride[s.id]||{})[d]!==undefined?(carDailyOverride[s.id]||{})[d]:defaultCar;
         const carLabel=car?circledNum(car):'';
         const abbr=locAbbrByName(v);
-        const isT=s.role==='trainee';
+        const isT=getRoleOnDay(s,d)==='trainee';
         const ctxFn=isT?`openTraineeMenu(event,${s.id},${d})`:`openCarSelect(event,${s.id},${d})`;
         const tipSuffix=isT?'（右クリック：フルタイム昇格）':'（右クリック：号車変更）';
         const traineeIcon=isT?'🔰':'';
@@ -1752,9 +1757,9 @@ function openLocEdit(locId,day,tdEl){
       {label:'未入力',value:''},
       {label:'出店なし',value:-1},
       ...staff.map(s=>{
-        const isOtherLoc=locs.some(l=>l.id!==locId&&lastAssignments[l.id][day]===s.id);
+        const isOtherLoc=locs.some(l=>l.id!==locId&&(lastAssignments[l.id]||{})[day]===s.id);
         const hasWishOff=(wishes[s.id]||{})[day]==='off';
-        const isTrainee=s.role==='trainee';
+        const isTrainee=getRoleOnDay(s,day)==='trainee';
         const traineeHere=(traineeAssignments[locId]?.[day]||[]).includes(s.id);
         return{
           label:s.name,
@@ -1772,7 +1777,7 @@ function openLocEdit(locId,day,tdEl){
 /* ⑦ スタッフ別出勤表のセル編集（スタッフ→場所選択） */
 function openStaffEdit(sid,day,tdEl){
   const s=staff.find(x=>x.id===sid);
-  const isTrainee=s?.role==='trainee';
+  const isTrainee=getRoleOnDay(s,day)==='trainee';
   const currentLoc=lastSchedule[sid]?.[day]||null;
   const availLocs=locs.filter(l=>(lastLocDates[l.id]||[]).includes(day));
   const busyLocs=new Set(
@@ -1844,7 +1849,7 @@ function applyLocEdit(locId,day,newVal){
 
   const resolved=newVal===''?null:(newVal===-1?-1:Number(newVal));
   const sObj=resolved>0?staff.find(x=>x.id===resolved):null;
-  const isTrainee=sObj?.role==='trainee';
+  const isTrainee=sObj?getRoleOnDay(sObj,day)==='trainee':false;
   const locName=locs.find(l=>l.id===locId)?.name||'';
 
   if(isTrainee && resolved>0){
@@ -1908,7 +1913,7 @@ function confirmTraineeOverflow(locId,day,newSid,locName){
     const btn=document.createElement('button');
     btn.className='btn btn-outline';
     btn.style.cssText='width:100%;margin-bottom:6px;text-align:left;font-size:12px;';
-    btn.textContent=`${s?.name||sid}（${s?.role==='trainee'?'研修中':'通常'}）を外す`;
+    btn.textContent=`${s?.name||sid}（${s&&getRoleOnDay(s,day)==='trainee'?'研修中':'通常'}）を外す`;
     btn.addEventListener('click',()=>{
       overlay.remove();
       // 外すスタッフのシフトを解除
@@ -1943,7 +1948,7 @@ function confirmTraineeOverflow(locId,day,newSid,locName){
 /* ⑦ スタッフ表からの変更適用 */
 function applyStaffEdit(sid,day,locName){
   const sObj=staff.find(x=>x.id===sid);
-  const isTrainee=sObj?.role==='trainee';
+  const isTrainee=sObj?getRoleOnDay(sObj,day)==='trainee':false;
 
   // step1: スタッフの現在の出勤先を解除
   const prevLocName=lastSchedule[sid]?.[day]||null;
@@ -2550,8 +2555,15 @@ function graduateTrainee(sid, fromDay, newRole){
       }
     });
   });
-  // roleをfromDay以降で切り替え（スタッフ単位で変更）
-  s.role=newRole;
+  // roleHistoryにfromDay以降の役割を記録（fromDay=1なら月初から全体をnewRoleに）
+  if(!s.roleHistory)s.roleHistory={};
+  if(fromDay<=1){
+    // 月初からの場合はroleHistoryをクリアしてrole自体を変更
+    s.roleHistory={};
+    s.role=newRole;
+  } else {
+    s.roleHistory[fromDay]=newRole;
+  }
   saveAll();
   renderStaff();
   renderResult(true);
