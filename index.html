@@ -1576,14 +1576,20 @@ function renderResult(keepScroll){
   if(!lastSchedule||!lastMonthInfo)return;
   const pos=keepScroll?saveScrollPos():null;
 
-  const{days,y,m}=lastMonthInfo;
-  const locDates=lastLocDates||{};
+  const{days,y,m,key}=lastMonthInfo;
   const assignments=lastAssignments||{};
   const schedule=lastSchedule||{};
 
-  // lastLocDates・lastAssignmentsに存在しない場所を補完
+  // 候補日は常にgetEffectiveDatesで動的取得（候補日変更をリアルタイム反映）
+  const locDates={};
   locs.forEach(l=>{
-    if(!locDates[l.id])locDates[l.id]=[];
+    const cs=getEffectiveDates(l.id,key);
+    if(cs.length){
+      locDates[l.id]=cs;
+    } else {
+      // 候補日未設定の場合はlastLocDatesまたはデフォルト曜日から
+      locDates[l.id]=(lastLocDates||{})[l.id]||[];
+    }
     if(!assignments[l.id])assignments[l.id]={};
   });
   staff.forEach(s=>{if(!schedule[s.id])schedule[s.id]={};});
@@ -1607,7 +1613,7 @@ function renderResult(keepScroll){
     const locTotal=candDays.filter(d=>{const sid=(assignments[l.id]||{})[d];return sid&&sid>0;}).length;
     const cells=Array.from({length:days},(_,i)=>{
       const d=i+1;
-      if(!(locDates[l.id]||[]).includes(d))return`<td class="c-hol">―</td>`;
+      if(!(locDates[l.id]||[]).includes(d))return`<td class="c-hol" style="cursor:pointer;color:#bbb;" onclick="toggleCandFromResult(${l.id},${d})" title="クリックで候補日に追加">―</td>`;
       const sid=(assignments[l.id]||{})[d];
       if(sid===-1)return`<td class="c-unassigned" style="cursor:pointer;" onclick="clickLocCell(${l.id},${d},this,event)" title="クリック変更 / Shift+クリックで範囲選択">-</td>`;
       const s=sid?staff.find(x=>x.id===sid):null;
@@ -1638,7 +1644,7 @@ function renderResult(keepScroll){
         cls=s?'c-work':'c-unassigned';
         titleStr=(s?s.name:'未割当')+(tStaff?`+${tStaff.name}(研修)`:'')+(car?` ${circledNum(car)}号車`:'');
       }
-      return`<td class="${cls}" style="cursor:pointer;" onclick="clickLocCell(${l.id},${d},this,event)" oncontextmenu="openLocCarSelect(event,${l.id},${d});return false;" title="${titleStr} / 右クリック：号車変更 / Shift+クリックで範囲選択">${label}</td>`;
+      return`<td class="${cls}" style="cursor:pointer;" onclick="clickLocCell(${l.id},${d},this,event)" oncontextmenu="openLocContextMenu(event,${l.id},${d});return false;" title="${titleStr} / 右クリック：号車変更・候補日除外 / Shift+クリックで範囲選択">${label}</td>`;
     }).join('');
     return`<tr>
       <td class="col-name" style="position:sticky;left:0;z-index:1;background:#EEEDFE;color:#3C3489;font-weight:500;white-space:nowrap;min-width:${nameColW};">${l.name}</td>
@@ -2619,6 +2625,82 @@ function graduateTrainee(sid, fromDay, newRole){
 }
 
 /* ===== 号車変更パネル ===== */
+/* ===== 場所別割当表：右クリック統合メニュー ===== */
+function openLocContextMenu(e,locId,day){
+  e.preventDefault();
+  const old=document.getElementById('car-select-panel');
+  if(old)old.remove();
+  const sid=lastAssignments[locId]?.[day];
+  const s=sid&&sid>0?staff.find(x=>x.id===sid):null;
+  const locName=locs.find(l=>l.id===locId)?.name||'';
+  const{key}=lastMonthInfo||{};
+  const curState=key?candDayState(locId,key,day):'on';
+
+  const panel=document.createElement('div');
+  panel.id='car-select-panel';
+  panel.style.cssText=`position:fixed;z-index:9999;background:white;border:1px solid #ddd;border-radius:10px;padding:0;box-shadow:0 4px 20px rgba(0,0,0,0.15);min-width:170px;overflow:hidden;`;
+  panel.style.left=Math.min(e.clientX,window.innerWidth-190)+'px';
+  panel.style.top=Math.min(e.clientY,window.innerHeight-280)+'px';
+
+  const header=document.createElement('div');
+  header.style.cssText='padding:8px 12px;background:#f5f5f0;font-size:11px;font-weight:600;color:#666;border-bottom:1px solid #eee;';
+  header.textContent=`${day}日 ${locName}`;
+  panel.appendChild(header);
+
+  const makeItem=(icon,label,cb,color='#1a1a1a')=>{
+    const div=document.createElement('div');
+    div.style.cssText=`padding:9px 14px;cursor:pointer;color:${color};font-size:12px;display:flex;align-items:center;gap:8px;`;
+    div.innerHTML=`<span>${icon}</span><span>${label}</span>`;
+    div.addEventListener('mouseover',()=>div.style.background='#f5f5f0');
+    div.addEventListener('mouseout',()=>div.style.background='white');
+    div.addEventListener('click',()=>{panel.remove();cb();});
+    panel.appendChild(div);
+  };
+
+  // 号車変更（担当スタッフがいる場合のみ）
+  if(s){
+    const currentCar=(carDailyOverride[s.id]||{})[day]!==undefined?(carDailyOverride[s.id]||{})[day]:s.carNo;
+    const carSection=document.createElement('div');
+    carSection.style.cssText='padding:8px 12px;border-top:1px solid #eee;';
+    carSection.innerHTML=`<div style="font-size:11px;color:#888;margin-bottom:6px;">号車（${s.name}）</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:3px;margin-bottom:6px;">
+        ${[1,2,3,4,5,6,7,8].map(n=>`<button onclick="setCarOverride(${s.id},${day},${n})" style="padding:5px 2px;border:1px solid ${currentCar===n?'#534AB7':'#ddd'};border-radius:5px;background:${currentCar===n?'#534AB7':'white'};color:${currentCar===n?'white':'#1a1a1a'};cursor:pointer;font-size:13px;">${circledNum(n)}</button>`).join('')}
+      </div>
+      <button onclick="setCarOverride(${s.id},${day},null)" style="width:100%;padding:4px;border:1px solid #ddd;border-radius:5px;background:white;cursor:pointer;font-size:11px;color:#888;">デフォルトに戻す</button>`;
+    panel.appendChild(carSection);
+  }
+
+  // 候補日のトグル
+  if(key){
+    const sepDiv=document.createElement('div');
+    sepDiv.style.cssText='border-top:1px solid #eee;';
+    panel.appendChild(sepDiv);
+    if(curState==='on'){
+      makeItem('🚫','候補日から除外',()=>{toggleCandFromResult(locId,day);},'#A32D2D');
+    } else if(curState==='excluded'){
+      makeItem('✅','候補日に戻す',()=>{toggleCandFromResult(locId,day);},'#085041');
+    } else {
+      makeItem('✅','候補日に追加',()=>{toggleCandFromResult(locId,day);},'#085041');
+    }
+  }
+
+  document.body.appendChild(panel);
+  setTimeout(()=>document.addEventListener('click',()=>{panel.remove();},{once:true}),0);
+}
+
+/* ===== シフト表から直接候補日をトグル ===== */
+function toggleCandFromResult(locId,day){
+  if(!lastMonthInfo)return;
+  const{key}=lastMonthInfo;
+  const cur=candDayState(locId,key,day);
+  // none→on（候補日追加）、on→excluded（除外）、excluded→none
+  const next=cur==='none'?'on':cur==='on'?'excluded':'none';
+  applyCandState(locId,key,day,next);
+  saveAll();
+  renderCandidates();
+  renderResult(true);
+}
+
 /* ===== 場所別割当表：右クリックで号車変更 ===== */
 function openLocCarSelect(e,locId,day){
   e.preventDefault();
