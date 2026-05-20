@@ -1596,6 +1596,10 @@ function renderResult(keepScroll){
   const avg=staff.length?(staff.reduce((a,s)=>a+Object.values(schedule[s.id]||{}).filter(v=>v).length,0)/staff.length).toFixed(1):'0';
 
 
+  // 名前列幅：スタッフ名の最大文字数から計算（両テーブル共通・locRows・staffRows生成前に必要）
+  const maxNameLen=Math.max(...staff.map(s=>s.name.length), 2);
+  const nameColW=Math.max(72, maxNameLen*13+16)+'px';
+
   // 場所別：各場所の出店日数（計）と月間総出店日数
   const locRows=locs.map(l=>{
     const candDays=(locDates[l.id]||[]);
@@ -1683,10 +1687,6 @@ function renderResult(keepScroll){
   const editMsgHtml=prevEditMsg&&prevEditMsg.style.display!=='none'
     ?`<div class="ok-box" id="edit-msg">${prevEditMsg.textContent}</div>`
     :`<div class="ok-box" style="display:none;" id="edit-msg"></div>`;
-
-  // 名前列幅：スタッフ名の最大文字数から計算（両テーブル共通）
-  const maxNameLen=Math.max(...staff.map(s=>s.name.length), 2);
-  const nameColW=Math.max(72, maxNameLen*13+16)+'px';
 
   // 各日のスタッフ別セル最大文字数を計算して日付ヘッダの min-width を決定
   const dayMaxLen=Array.from({length:days},(_,i)=>{
