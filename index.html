@@ -1293,6 +1293,15 @@ function renderStaff(){
     </div>
     <div class="staff-expand" id="expand-${s.id}">
       <div class="row" style="margin-bottom:10px;gap:10px;">
+        <span class="muted">タイプ：</span>
+        <select onchange="updateStaff(${s.id},'role',this.value);renderStaff();document.getElementById('expand-${s.id}').classList.add('open');" style="padding:4px 8px;border-radius:6px;border:1px solid #ddd;">
+          <option value="mgr" ${s.role==='mgr'?'selected':''}>マネージャー</option>
+          <option value="full" ${s.role==='full'?'selected':''}>フルタイム</option>
+          <option value="part" ${s.role==='part'?'selected':''}>パートタイム</option>
+          <option value="trainee" ${s.role==='trainee'?'selected':''}>研修中</option>
+        </select>
+      </div>
+      <div class="row" style="margin-bottom:10px;gap:10px;">
         <span class="muted">略称：</span>
         <input type="text" value="${ab}" maxlength="4" style="width:68px;" placeholder="2-4字" onchange="updateStaff(${s.id},'abbr',this.value);renderStaff();document.getElementById('expand-${s.id}').classList.add('open');"/>
         <span class="muted">カレンダー色：</span>
@@ -1767,7 +1776,7 @@ function openStaffEdit(sid,day,tdEl){
   const currentLoc=lastSchedule[sid]?.[day]||null;
   const availLocs=locs.filter(l=>(lastLocDates[l.id]||[]).includes(day));
   const busyLocs=new Set(
-    locs.filter(l=>lastAssignments[l.id][day]&&lastAssignments[l.id][day]!==sid)
+    locs.filter(l=>(lastAssignments[l.id]||{})[day]&&(lastAssignments[l.id]||{})[day]!==sid)
       .map(l=>l.id)
   );
   openEditPanel({
