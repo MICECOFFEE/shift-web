@@ -1740,6 +1740,7 @@ function openLocEdit(locId,day,tdEl){
     title:`${day}日 ${locs.find(l=>l.id===locId)?.name||''}`,
     currentVal:lastAssignments[locId][day],
     options:[
+      {label:'未入力',value:''},
       {label:'出店なし',value:-1},
       ...staff.map(s=>{
         const isOtherLoc=locs.some(l=>l.id!==locId&&lastAssignments[l.id][day]===s.id);
