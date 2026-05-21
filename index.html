@@ -419,7 +419,7 @@ let selLocId=null;
 let carDailyOverride={}; // {スタッフID: {日付: 号車番号}}
 
 // 丸数字変換
-const circledNum=n=>['①','②','③','④','⑤','⑥','⑦','⑧'][n-1]||String(n);
+const circledNum=n=>['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩','⑪','⑫'][n-1]||String(n);
 
 /* ===== Shift+クリック 範囲選択 共通 ===== */
 // 各機能ごとに「最後に通常クリックした日」を記憶
@@ -1317,7 +1317,7 @@ function renderStaff(){
         <span class="muted">デフォルト号車：</span>
         <select onchange="updateStaff(${s.id},'carNo',this.value?Number(this.value):null)" style="padding:4px 8px;border-radius:6px;border:1px solid #ddd;">
           <option value="">未設定</option>
-          ${[1,2,3,4,5,6,7,8].map(n=>`<option value="${n}" ${carNo===n?'selected':''}>${n}号車</option>`).join('')}
+          ${[1,2,3,4,5,6,7,8,9,10,11,12].map(n=>`<option value="${n}" ${carNo===n?'selected':''}>${n}号車</option>`).join('')}
         </select>
         <span class="muted" style="font-size:11px;">コーヒー管理アプリとの連携に使用</span>
       </div>
@@ -2663,8 +2663,8 @@ function openLocContextMenu(e,locId,day){
     const carSection=document.createElement('div');
     carSection.style.cssText='padding:8px 12px;border-top:1px solid #eee;';
     carSection.innerHTML=`<div style="font-size:11px;color:#888;margin-bottom:6px;">号車（${s.name}）</div>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:3px;margin-bottom:6px;">
-        ${[1,2,3,4,5,6,7,8].map(n=>`<button onclick="setCarOverride(${s.id},${day},${n})" style="padding:5px 2px;border:1px solid ${currentCar===n?'#534AB7':'#ddd'};border-radius:5px;background:${currentCar===n?'#534AB7':'white'};color:${currentCar===n?'white':'#1a1a1a'};cursor:pointer;font-size:13px;">${circledNum(n)}</button>`).join('')}
+      <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:3px;margin-bottom:6px;">
+        ${[1,2,3,4,5,6,7,8,9,10,11,12].map(n=>`<button onclick="setCarOverride(${s.id},${day},${n})" style="padding:5px 2px;border:1px solid ${currentCar===n?'#534AB7':'#ddd'};border-radius:5px;background:${currentCar===n?'#534AB7':'white'};color:${currentCar===n?'white':'#1a1a1a'};cursor:pointer;font-size:13px;">${circledNum(n)}</button>`).join('')}
       </div>
       <button onclick="setCarOverride(${s.id},${day},null)" style="width:100%;padding:4px;border:1px solid #ddd;border-radius:5px;background:white;cursor:pointer;font-size:11px;color:#888;">デフォルトに戻す</button>`;
     panel.appendChild(carSection);
@@ -2730,9 +2730,9 @@ function openLocCarSelect_forStaff(e,sid,day,locId){
   panel.style.top=Math.min(e.clientY,window.innerHeight-250)+'px';
   panel.innerHTML=`
     <div style="font-size:12px;font-weight:500;color:#666;margin-bottom:8px;">${s.name} ${day}日(${locName}) の号車</div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-bottom:8px;">
-      ${[1,2,3,4,5,6,7,8].map(n=>`
-        <button onclick="setCarOverride(${sid},${day},${n})" style="padding:6px 2px;border:1px solid ${currentCar===n?'#534AB7':'#ddd'};border-radius:6px;background:${currentCar===n?'#534AB7':'white'};color:${currentCar===n?'white':'#1a1a1a'};cursor:pointer;font-size:14px;">${circledNum(n)}</button>`).join('')}
+    <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:4px;margin-bottom:8px;">
+      ${[1,2,3,4,5,6,7,8,9,10,11,12].map(n=>`
+        <button onclick="setCarOverride(${sid},${day},${n})" style="padding:5px 2px;border:1px solid ${currentCar===n?'#534AB7':'#ddd'};border-radius:6px;background:${currentCar===n?'#534AB7':'white'};color:${currentCar===n?'white':'#1a1a1a'};cursor:pointer;font-size:13px;">${circledNum(n)}</button>`).join('')}
     </div>
     <button onclick="setCarOverride(${sid},${day},null)" style="width:100%;padding:5px;border:1px solid #ddd;border-radius:6px;background:white;cursor:pointer;font-size:12px;color:#888;">デフォルトに戻す</button>
   `;
@@ -2758,8 +2758,8 @@ function openCarSelect(e,sid,day){
 
   panel.innerHTML=`
     <div style="font-size:12px;font-weight:500;color:#666;margin-bottom:8px;">${s.name} ${day}日 の号車</div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-bottom:8px;">
-      ${[1,2,3,4,5,6,7,8].map(n=>`
+    <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:4px;margin-bottom:8px;">
+      ${[1,2,3,4,5,6,7,8,9,10,11,12].map(n=>`
         <button onclick="setCarOverride(${sid},${day},${n})" style="padding:6px 2px;border:1px solid ${currentCar===n?'#534AB7':'#ddd'};border-radius:6px;background:${currentCar===n?'#534AB7':'white'};color:${currentCar===n?'white':'#1a1a1a'};cursor:pointer;font-size:14px;">
           ${circledNum(n)}
         </button>`).join('')}
@@ -2772,10 +2772,12 @@ function openCarSelect(e,sid,day){
 }
 
 function setCarOverride(sid,day,carNo){
-  // スクロール位置を保存
-  const wrap=document.getElementById('staff-table-wrap');
-  const scrollLeft=wrap?wrap.scrollLeft:0;
-  const scrollTop=wrap?wrap.scrollTop:0;
+  // 両テーブルのスクロール位置を保存
+  const stWrap=document.getElementById('staff-table-wrap');
+  const locWrap=document.getElementById('loc-table-wrap');
+  const stSL=stWrap?stWrap.scrollLeft:0, stST=stWrap?stWrap.scrollTop:0;
+  const lcSL=locWrap?locWrap.scrollLeft:0, lcST=locWrap?locWrap.scrollTop:0;
+  const pageY=window.scrollY;
 
   if(!carDailyOverride[sid])carDailyOverride[sid]={};
   if(carNo===null){
@@ -2786,13 +2788,16 @@ function setCarOverride(sid,day,carNo){
   const panel=document.getElementById('car-select-panel');
   if(panel)panel.remove();
   saveAll();
-  go('result');
+  renderResult(true);
 
   // スクロール位置を復元
-  setTimeout(()=>{
-    const w=document.getElementById('staff-table-wrap');
-    if(w){w.scrollLeft=scrollLeft;w.scrollTop=scrollTop;}
-  },50);
+  requestAnimationFrame(()=>{
+    window.scrollTo(0,pageY);
+    const sw=document.getElementById('staff-table-wrap');
+    const lw=document.getElementById('loc-table-wrap');
+    if(sw){sw.scrollLeft=stSL;sw.scrollTop=stST;}
+    if(lw){lw.scrollLeft=lcSL;lw.scrollTop=lcST;}
+  });
 }
 
 function showEditMsg(msg){
@@ -2951,7 +2956,7 @@ function downloadViewer(){
 <footer>閲覧専用シフト表 ${ml}</footer>
 <script>
 const staff=${sj},locs=${lj},ld=${JSON.stringify(lastLocDates)},as=${JSON.stringify(lastAssignments)},sc=${JSON.stringify(lastSchedule)},co=${coj},days=${days},y=${y},m=${m};
-const circledNum=n=>['①','②','③','④','⑤','⑥','⑦','⑧'][n-1]||String(n);
+const circledNum=n=>['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩','⑪','⑫'][n-1]||String(n);
 const DOW=['日','月','火','水','木','金','土'];
 const sf=document.getElementById('sf'),lf=document.getElementById('lf');
 staff.forEach(s=>{const o=document.createElement('option');o.value=s.id;o.textContent=s.name;sf.appendChild(o);});
