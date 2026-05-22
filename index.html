@@ -1690,10 +1690,15 @@ function renderResult(keepScroll){
         const carLabel=car?(carDup?`<span style="color:#c0392b;font-weight:bold;">${circledNum(car)}</span>`:circledNum(car)):'';
         const abbr=locAbbrByName(v);
         const isT=getRoleOnDay(s,d)==='trainee';
-        const ctxFn=isT?`openTraineeMenu(event,${s.id},${d})`:`openCarSelect(event,${s.id},${d})`;
-        const tipSuffix=isT?'（右クリック：フルタイム昇格）':'（右クリック：号車変更）';
+        const ctxFn=isT?`openTraineeMenu(event,${s.id},${d})`:`openStaffContextMenu(event,${s.id},${d})`;
+        const tipSuffix=isT?'（右クリック：フルタイム昇格）':'（右クリック：号車変更・区画設定）';
         const traineeIcon=isT?'🔰':'';
-        return`<td class="c-work" style="cursor:pointer;${isT?'border-bottom:2px solid #6B21A8;':''}" onclick="clickStaffCell(${s.id},${d},this,event)" oncontextmenu="${ctxFn};return false;" title="${v}${tipSuffix}">${traineeIcon}${carLabel}${abbr}</td>`;
+        // 担当場所のlocIdを特定して区画を取得
+        const stLoc=locs.find(l=>l.name===v);
+        const stSec=stLoc?(locSections[stLoc.id]||{})[d]||'':'';
+        const stSecDot=stSec?`<span style="position:absolute;top:1px;right:1px;width:5px;height:5px;border-radius:50%;background:#F59E0B;pointer-events:none;" title="${stSec}"></span>`:'';
+        const stTitle=`${v}${stSec?' ['+stSec+']':''}${tipSuffix}`;
+        return`<td class="c-work" style="cursor:pointer;position:relative;${isT?'border-bottom:2px solid #6B21A8;':''}" onclick="clickStaffCell(${s.id},${d},this,event)" oncontextmenu="${ctxFn};return false;" title="${stTitle}">${traineeIcon}${carLabel}${abbr}${stSecDot}</td>`;
       }
       return`<td class="c-off" style="cursor:pointer;" onclick="clickStaffCell(${s.id},${d},this,event)" title="クリックで割り当て">―</td>`;
     }).join('');
@@ -2712,6 +2717,75 @@ function graduateTrainee(sid, fromDay, newRole){
   showEditMsg(`${s.name}：${fromDay}日からフルタイムに昇格しました`);
 }
 
+/* ===== スタッフ別割当表：右クリック統合メニュー ===== */
+function openStaffContextMenu(e,sid,day){
+  e.preventDefault();
+  const old=document.getElementById('car-select-panel');
+  if(old)old.remove();
+  const s=staff.find(x=>x.id===sid);
+  if(!s)return;
+  const v=(lastSchedule[sid]||{})[day];
+  const loc=v?locs.find(l=>l.name===v):null;
+  const locId=loc?loc.id:null;
+  const currentCar=(carDailyOverride[sid]||{})[day]!==undefined?(carDailyOverride[sid]||{})[day]:s.carNo;
+  const curSec=locId?(locSections[locId]||{})[day]||'':'';
+
+  const panel=document.createElement('div');
+  panel.id='car-select-panel';
+  panel.style.cssText=`position:fixed;z-index:9999;background:white;border:1px solid #ddd;border-radius:10px;padding:0;box-shadow:0 4px 20px rgba(0,0,0,0.15);min-width:180px;overflow:hidden;`;
+  panel.style.left=Math.min(e.clientX,window.innerWidth-200)+'px';
+  panel.style.top=Math.min(e.clientY,window.innerHeight-320)+'px';
+
+  const header=document.createElement('div');
+  header.style.cssText='padding:8px 12px;background:#f5f5f0;font-size:11px;font-weight:600;color:#666;border-bottom:1px solid #eee;';
+  header.textContent=`${s.name} ${day}日${v?' ('+v+')':''}`;
+  panel.appendChild(header);
+
+  // 号車変更
+  const carSection=document.createElement('div');
+  carSection.style.cssText='padding:8px 12px;border-bottom:1px solid #eee;';
+  carSection.innerHTML=`<div style="font-size:11px;color:#888;margin-bottom:6px;">号車</div>
+    <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:3px;margin-bottom:6px;">
+      ${[1,2,3,4,5,6,7,8,9,10,11,12].map(n=>`<button onclick="setCarOverride(${sid},${day},${n})" style="padding:5px 2px;border:1px solid ${currentCar===n?'#534AB7':'#ddd'};border-radius:5px;background:${currentCar===n?'#534AB7':'white'};color:${currentCar===n?'white':'#1a1a1a'};cursor:pointer;font-size:13px;">${circledNum(n)}</button>`).join('')}
+    </div>
+    <button onclick="setCarOverride(${sid},${day},null)" style="width:100%;padding:4px;border:1px solid #ddd;border-radius:5px;background:white;cursor:pointer;font-size:11px;color:#888;">デフォルトに戻す</button>`;
+  panel.appendChild(carSection);
+
+  // 区画設定（場所が割り当てられている場合のみ）
+  if(locId){
+    const secSection=document.createElement('div');
+    secSection.style.cssText='padding:8px 12px;';
+    secSection.innerHTML=`<div style="font-size:11px;color:#888;margin-bottom:5px;">🏢 区画${curSec?' (現在: '+curSec+')':''}</div>
+      <div style="display:flex;gap:4px;align-items:center;">
+        <input id="sec-input-st-${sid}-${day}" type="text" value="${curSec}" placeholder="例: A区画" style="flex:1;padding:4px 8px;border:1px solid #ddd;border-radius:6px;font-size:12px;width:100px;">
+        <button onclick="setSecFromStaff(${locId},${day},'sec-input-st-${sid}-${day}')" style="padding:4px 8px;background:#534AB7;color:white;border:none;border-radius:6px;font-size:11px;cursor:pointer;">設定</button>
+        ${curSec?`<button onclick="setSecFromStaff(${locId},${day},'',true)" style="padding:4px 8px;background:#eee;color:#666;border:none;border-radius:6px;font-size:11px;cursor:pointer;">削除</button>`:''}
+      </div>`;
+    panel.appendChild(secSection);
+  }
+
+  document.body.appendChild(panel);
+  setTimeout(()=>document.addEventListener('click',(e2)=>{
+    if(!panel.contains(e2.target)){panel.remove();}
+  },{once:true}),0);
+}
+
+function setSecFromStaff(locId,day,inputId,clear=false){
+  if(!locSections[locId])locSections[locId]={};
+  if(clear){
+    delete locSections[locId][day];
+  } else {
+    const inp=document.getElementById(inputId);
+    const val=inp?inp.value.trim():'';
+    if(val)locSections[locId][day]=val;
+    else delete locSections[locId][day];
+  }
+  const panel=document.getElementById('car-select-panel');
+  if(panel)panel.remove();
+  saveAll();
+  renderResult(true);
+}
+
 /* ===== 号車変更パネル ===== */
 /* ===== 場所別割当表：右クリック統合メニュー ===== */
 function openLocContextMenu(e,locId,day){
@@ -3125,7 +3199,10 @@ function rt(sid,lid){
         const l=locs.find(x=>x.name===v);
         const car=(co[s.id]||{})[d]!==undefined?(co[s.id]||{})[d]:s.carNo;
         const carLabel=car?circledNum(car):'';
-        return'<td class="cw" title="'+v+'">'+carLabel+(l?l.abbr:v.slice(0,3))+'</td>';
+        const stSec=l?(sec[l.id]||{})[d]||'':'';
+        const stDot=stSec?'<span style="position:absolute;top:1px;right:1px;width:5px;height:5px;border-radius:50%;background:#F59E0B;pointer-events:none;"></span>':'';
+        const stOnclk=stSec?'onclick="showSecPopup(event,this)" data-sec="'+stSec+'" data-loc="'+(l?l.name:v)+'"':'';
+        return'<td class="cw" style="position:relative;cursor:'+(stSec?'pointer':'default')+';" '+stOnclk+' title="'+v+(stSec?' ['+stSec+']':'')+'">'+carLabel+(l?l.abbr:v.slice(0,3))+stDot+'</td>';
       }
       return'<td class="co">―</td>';
     }).join('')+'</tr>';
