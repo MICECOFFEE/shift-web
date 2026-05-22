@@ -1602,6 +1602,21 @@ function renderResult(keepScroll){
   const avg=staff.length?(staff.reduce((a,s)=>a+Object.values(schedule[s.id]||{}).filter(v=>v).length,0)/staff.length).toFixed(1):'0';
 
 
+  // 日別・号車の重複マップ生成 {day: Set(carNo)} → 重複あり号車
+  const dupCarByDay={};
+  for(let d=1;d<=days;d++){
+    const carCount={};
+    staff.forEach(s=>{
+      const car=(carDailyOverride[s.id]||{})[d]!==undefined?(carDailyOverride[s.id]||{})[d]:(s.carNo||null);
+      if(!car)return;
+      // その日に出勤しているスタッフのみカウント
+      const sched=(lastSchedule||{})[s.id]||{};
+      if(!sched[d])return;
+      carCount[car]=(carCount[car]||0)+1;
+    });
+    dupCarByDay[d]=new Set(Object.entries(carCount).filter(([,cnt])=>cnt>1).map(([c])=>Number(c)));
+  }
+
   // 名前列幅：スタッフ名の最大文字数から計算（両テーブル共通・locRows・staffRows生成前に必要）
   const maxStaffNameLen=Math.max(...staff.map(s=>s.name.length), 2);
   const maxLocNameLen=Math.max(...locs.map(l=>l.name.length), 2);
@@ -1619,7 +1634,8 @@ function renderResult(keepScroll){
       const s=sid?staff.find(x=>x.id===sid):null;
       // 号車取得（carDailyOverride優先、なければcarNo）
       const car=s?((carDailyOverride[s.id]||{})[d]!==undefined?(carDailyOverride[s.id]||{})[d]:(s.carNo||null)):null;
-      const carLabel=car?circledNum(car):'';
+      const carDup=car&&dupCarByDay[d]?.has(car);
+      const carLabel=car?(carDup?`<span style="color:#c0392b;font-weight:bold;">${circledNum(car)}</span>`:circledNum(car)):'';
       // traineeAssignmentsの研修中スタッフ（main担当と重複除く）
       const tArr=(traineeAssignments[l.id]?.[d]||[]).filter(tid=>tid!==sid);
       const tStaff=tArr.length>0?staff.find(x=>x.id===tArr[0]):null;
@@ -1665,7 +1681,8 @@ function renderResult(keepScroll){
       const d=i+1,v=sched[d];
       if(v){
         const car=(carDailyOverride[s.id]||{})[d]!==undefined?(carDailyOverride[s.id]||{})[d]:defaultCar;
-        const carLabel=car?circledNum(car):'';
+        const carDup=car&&dupCarByDay[d]?.has(car);
+        const carLabel=car?(carDup?`<span style="color:#c0392b;font-weight:bold;">${circledNum(car)}</span>`:circledNum(car)):'';
         const abbr=locAbbrByName(v);
         const isT=getRoleOnDay(s,d)==='trainee';
         const ctxFn=isT?`openTraineeMenu(event,${s.id},${d})`:`openCarSelect(event,${s.id},${d})`;
@@ -2420,6 +2437,18 @@ function printShift(){
   const schedule=lastSchedule||{};
   staff.forEach(s=>{if(!schedule[s.id])schedule[s.id]={};});
 
+  // 日別号車重複マップ
+  const printDupCar={};
+  for(let d=1;d<=days;d++){
+    const cc={};
+    staff.forEach(s=>{
+      const car=(carDailyOverride[s.id]||{})[d]!==undefined?(carDailyOverride[s.id]||{})[d]:(s.carNo||null);
+      if(!car||!schedule[s.id]?.[d])return;
+      cc[car]=(cc[car]||0)+1;
+    });
+    printDupCar[d]=new Set(Object.entries(cc).filter(([,n])=>n>1).map(([c])=>Number(c)));
+  }
+
   // 両テーブル共通のセル幅を計算
   const maxStLen=Math.max(...staff.map(s=>s.name.length),2);
   const maxLocLen=Math.max(...locs.map(l=>l.name.length),2);
@@ -2459,7 +2488,8 @@ function printShift(){
       if(sid===-1||!sid)return`<td class="dc unas">${sid===-1?'―':'未'}</td>`;
       const s=staff.find(x=>x.id===sid);
       const car=(carDailyOverride[sid]||{})[d]!==undefined?(carDailyOverride[sid]||{})[d]:s?.carNo;
-      const carLabel=car?circledNum(car):'';
+      const pDup=car&&printDupCar[d]?.has(car);
+      const carLabel=car?(pDup?`<span style="color:#c0392b;font-weight:bold">${circledNum(car)}</span>`:circledNum(car)):'';
       const mainLabel=s?staffAbbr(s):'?';
       // 研修者
       const tArr=((traineeAssignments[l.id]||{})[d]||[]).filter(tid=>tid!==sid);
@@ -2479,7 +2509,8 @@ function printShift(){
       const d=i+1,v=sched[d];
       if(!v)return`<td class="dc off">―</td>`;
       const car=(carDailyOverride[s.id]||{})[d]!==undefined?(carDailyOverride[s.id]||{})[d]:s.carNo;
-      const carLabel=car?circledNum(car):'';
+      const pDupS=car&&printDupCar[d]?.has(car);
+      const carLabel=car?(pDupS?`<span style="color:#c0392b;font-weight:bold">${circledNum(car)}</span>`:circledNum(car)):'';
       const abbr=locAbbrByName(v);
       const isT=getRoleOnDay(s,d)==='trainee';
       return`<td class="dc work">${isT?'🔰':''}${carLabel}${abbr}</td>`;
