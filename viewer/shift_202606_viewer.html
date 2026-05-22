@@ -36,7 +36,8 @@ function cellLoc(d,l){
   const section=(sec[l.id]||{})[d]||'';
   const dot=section?'<span style="position:absolute;top:1px;right:1px;width:5px;height:5px;border-radius:50%;background:#F59E0B;pointer-events:none;"></span>':'';
   const tip=(s?s.abbr:'?')+(section?' ['+section+']':'');
-  return'<td class="cw" style="position:relative;" title="'+tip+'">'+carLabel+(s?s.abbr:'?')+dot+'</td>';
+  const onclk=section?'onclick="showSecPopup(event,this)" data-sec="'+section+'" data-loc="'+l.name+'"':'';
+  return'<td class="cw" style="position:relative;cursor:'+(section?'pointer':'default')+';" '+onclk+' title="'+tip+'">'+carLabel+(s?s.abbr:'?')+dot+'</td>';
 }
 function rt(sid,lid){
   const fl=lid==='all'?locs:locs.filter(l=>String(l.id)===lid);
@@ -105,5 +106,23 @@ function renderCal(){
   }
   document.getElementById('cal-grid').innerHTML=cells;
 }
+
+function showSecPopup(e,td){
+  const section=td.dataset.sec||'';const locName=td.dataset.loc||'';
+  if(!section)return;
+  e.stopPropagation();
+  const old=document.getElementById('sec-toast');if(old)old.remove();
+  const toast=document.createElement('div');
+  toast.id='sec-toast';
+  toast.style.cssText='position:fixed;z-index:9999;background:rgba(30,20,60,0.92);color:white;padding:10px 16px;border-radius:10px;font-size:13px;max-width:220px;text-align:center;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,0.3);transition:opacity 0.3s;';
+  toast.innerHTML='<div style="font-size:11px;opacity:0.75;margin-bottom:3px;">'+locName+'</div><div style="font-weight:600;">🏢 '+section+'</div>';
+  const px=e.clientX||(e.touches&&e.touches[0]?e.touches[0].clientX:window.innerWidth/2);
+  const py=e.clientY||(e.touches&&e.touches[0]?e.touches[0].clientY:100);
+  toast.style.left=Math.min(px,window.innerWidth-160)+'px';
+  toast.style.top=Math.max(py-70,8)+'px';
+  document.body.appendChild(toast);
+  setTimeout(()=>{toast.style.opacity='0';setTimeout(()=>toast.remove(),300);},2200);
+}
+document.addEventListener('click',()=>{const t=document.getElementById('sec-toast');if(t)t.remove();});
 af();
 </script></body></html>
