@@ -55,7 +55,10 @@ function rt(sid,lid){
         const l=locs.find(x=>x.name===v);
         const car=(co[s.id]||{})[d]!==undefined?(co[s.id]||{})[d]:s.carNo;
         const carLabel=car?circledNum(car):'';
-        return'<td class="cw" title="'+v+'">'+carLabel+(l?l.abbr:v.slice(0,3))+'</td>';
+        const stSec=l?(sec[l.id]||{})[d]||'':'';
+        const stDot=stSec?'<span style="position:absolute;top:1px;right:1px;width:5px;height:5px;border-radius:50%;background:#F59E0B;pointer-events:none;"></span>':'';
+        const stOnclk=stSec?'onclick="showSecPopup(event,this)" data-sec="'+stSec+'" data-loc="'+(l?l.name:v)+'"':'';
+        return'<td class="cw" style="position:relative;cursor:'+(stSec?'pointer':'default')+';" '+stOnclk+' title="'+v+(stSec?' ['+stSec+']':'')+'">'+carLabel+(l?l.abbr:v.slice(0,3))+stDot+'</td>';
       }
       return'<td class="co">―</td>';
     }).join('')+'</tr>';
