@@ -2510,6 +2510,8 @@ th{background:#f5f5f0;font-weight:500;}
 .loc-name{background:#EEEDFE;color:#3C3489;font-weight:bold;}
 .tr{color:#6B21A8;font-size:6px;}
 .summary{font-size:8px;color:#555;margin-bottom:6px;}
+.sec-hdr{background:#e8e8e8;font-weight:bold;font-size:9px;text-align:left;padding:3px 4px;color:#333;}
+.thr th{background:#f5f5f0;font-weight:500;}
 @media print{
   @page{size:A4 landscape;margin:6mm;}
   body{padding:0;}
@@ -2518,17 +2520,16 @@ th{background:#f5f5f0;font-weight:500;}
 </style></head><body>
 <h2>${y}年${m}月 シフト表</h2>
 <div class="summary">月間総出店: ${totalLocDays}日　スタッフ総出勤: ${staffGrand}日　場所数: ${locs.length}　スタッフ数: ${staff.length}名</div>
-<h3>場所別割当表</h3>
 <table>
   <colgroup><col style="width:${nameW}px">${Array.from({length:days},(_,i)=>`<col style="width:${dayW[i]}px">`).join('')}<col style="width:18px"></colgroup>
-  <thead><tr><th class="nc" style="text-align:left;">場所</th>${hdrs}<th class="tc">計</th></tr></thead>
-  <tbody>${locTableRows}</tbody>
-</table>
-<h3>スタッフ別出勤表</h3>
-<table>
-  <colgroup><col style="width:${nameW}px">${Array.from({length:days},(_,i)=>`<col style="width:${dayW[i]}px">`).join('')}<col style="width:18px"></colgroup>
-  <thead><tr><th class="nc" style="text-align:left;">名前</th>${hdrs}<th class="tc">計</th></tr></thead>
-  <tbody>${staffTableRows}</tbody>
+  <tbody>
+    <tr><td colspan="${days+2}" class="sec-hdr">場所別割当表</td></tr>
+    <tr class="thr"><th class="nc" style="text-align:left;">場所</th>${hdrs}<th class="tc">計</th></tr>
+    ${locTableRows}
+    <tr><td colspan="${days+2}" class="sec-hdr">スタッフ別出勤表</td></tr>
+    <tr class="thr"><th class="nc" style="text-align:left;">名前</th>${hdrs}<th class="tc">計</th></tr>
+    ${staffTableRows}
+  </tbody>
 </table>
 </body></html>`;
 
