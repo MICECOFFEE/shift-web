@@ -417,6 +417,7 @@ let traineeAssignments={}; // {locId:{day:[sid,...]}}
 let backupSchedule=null,backupAssignments=null,backupLocDates=null,backupMonthInfo=null;
 let selLocId=null;
 let carDailyOverride={}; // {スタッフID: {日付: 号車番号}}
+let locSections={}; // {locId: {day: '区画名'}}
 
 // 丸数字変換
 const circledNum=n=>['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩','⑪','⑫'][n-1]||String(n);
@@ -781,7 +782,7 @@ function saveAll(){
       tmonth:document.getElementById('tmonth').value,
       lastSchedule,lastAssignments,lastLocDates,lastMonthInfo,
       backupSchedule,backupAssignments,backupLocDates,backupMonthInfo,
-      carDailyOverride,traineeAssignments
+      carDailyOverride,traineeAssignments,locSections
     };
     if(window._saveToFirestore) window._saveToFirestore(data);
     showSaved();
@@ -890,7 +891,7 @@ function clearAll(){
   if(!confirm('すべてリセットしますか？スタッフはデフォルト11名に戻ります。シフト表も消去されます。'))return;
   localStorage.removeItem(LS_KEY);
   staff=JSON.parse(JSON.stringify(DEFAULT_STAFF));locs=[];priorities={};wishes={};candidates={};nextSid=12;nextLid=1;
-  lastSchedule=null;lastAssignments=null;lastLocDates=null;lastMonthInfo=null;traineeAssignments={};
+  lastSchedule=null;lastAssignments=null;lastLocDates=null;lastMonthInfo=null;traineeAssignments={};locSections={};
   backupSchedule=null;backupAssignments=null;backupLocDates=null;backupMonthInfo=null;
   document.getElementById('result-area').innerHTML='<div style="text-align:center;padding:3rem;color:#888;"><p style="margin-bottom:1rem;">設定が完了したらシフトを自動生成できます</p><button class="btn btn-primary" onclick="generate()">シフトを自動生成</button></div>';
   saveAll();go('staff');renderStaff();renderLocs();renderPriority();
@@ -956,13 +957,14 @@ function importJSON(e){
           lastLocDates=d.lastLocDates;
           lastMonthInfo=d.lastMonthInfo;
         }else{
-          lastSchedule=null;lastAssignments=null;lastLocDates=null;lastMonthInfo=null;traineeAssignments={};
+          lastSchedule=null;lastAssignments=null;lastLocDates=null;lastMonthInfo=null;traineeAssignments={};locSections={};
         }
         backupSchedule=d.backupSchedule||null;
         backupAssignments=d.backupAssignments||null;
         backupLocDates=d.backupLocDates||null;
         backupMonthInfo=d.backupMonthInfo||null;
         carDailyOverride=d.carDailyOverride||{};
+        locSections=d.locSections||{};
 
         setStatus('ローカルストレージに保存中...');
         // saveAllはtry-catchで囲んでサイズオーバーに対応
@@ -1660,7 +1662,10 @@ function renderResult(keepScroll){
         cls=s?'c-work':'c-unassigned';
         titleStr=(s?s.name:'未割当')+(tStaff?`+${tStaff.name}(研修)`:'')+(car?` ${circledNum(car)}号車`:'');
       }
-      return`<td class="${cls}" style="cursor:pointer;" onclick="clickLocCell(${l.id},${d},this,event)" oncontextmenu="openLocContextMenu(event,${l.id},${d});return false;" title="${titleStr} / 右クリック：号車変更・候補日除外 / Shift+クリックで範囲選択">${label}</td>`;
+      const sec=(locSections[l.id]||{})[d]||'';
+      const secDot=sec?`<span style="position:absolute;top:1px;right:1px;width:5px;height:5px;border-radius:50%;background:#F59E0B;pointer-events:none;" title="${sec}"></span>`:'';
+      const titleWithSec=sec?`${titleStr} [${sec}] / 右クリック：号車変更・区画設定・候補日除外 / Shift+クリックで範囲選択`:`${titleStr} / 右クリック：号車変更・区画設定・候補日除外 / Shift+クリックで範囲選択`;
+      return`<td class="${cls}" style="cursor:pointer;position:relative;" onclick="clickLocCell(${l.id},${d},this,event)" oncontextmenu="openLocContextMenu(event,${l.id},${d});return false;" title="${titleWithSec}">${label}${secDot}</td>`;
     }).join('');
     return`<tr>
       <td class="col-name" style="position:sticky;left:0;z-index:1;background:#EEEDFE;color:#3C3489;font-weight:500;white-space:nowrap;min-width:${nameColW};">${l.name}</td>
@@ -2753,6 +2758,23 @@ function openLocContextMenu(e,locId,day){
     panel.appendChild(carSection);
   }
 
+  // 区画設定
+  {
+    const sepDiv=document.createElement('div');
+    sepDiv.style.cssText='border-top:1px solid #eee;';
+    panel.appendChild(sepDiv);
+    const curSec=(locSections[locId]||{})[day]||'';
+    const secItem=document.createElement('div');
+    secItem.style.cssText='padding:8px 14px;font-size:12px;';
+    secItem.innerHTML=`<div style="color:#888;font-size:11px;margin-bottom:5px;">🏢 区画${curSec?` (現在: ${curSec})`:''}</div>
+      <div style="display:flex;gap:4px;align-items:center;">
+        <input id="sec-input-${locId}-${day}" type="text" value="${curSec}" placeholder="例: A区画" style="flex:1;padding:4px 8px;border:1px solid #ddd;border-radius:6px;font-size:12px;width:100px;">
+        <button onclick="setSectionFromMenu(${locId},${day})" style="padding:4px 8px;background:#534AB7;color:white;border:none;border-radius:6px;font-size:11px;cursor:pointer;">設定</button>
+        ${curSec?`<button onclick="setSectionFromMenu(${locId},${day},true)" style="padding:4px 8px;background:#eee;color:#666;border:none;border-radius:6px;font-size:11px;cursor:pointer;">削除</button>`:''}
+      </div>`;
+    panel.appendChild(secItem);
+  }
+
   // 候補日のトグル
   if(key){
     const sepDiv=document.createElement('div');
@@ -2768,7 +2790,26 @@ function openLocContextMenu(e,locId,day){
   }
 
   document.body.appendChild(panel);
-  setTimeout(()=>document.addEventListener('click',()=>{panel.remove();},{once:true}),0);
+  // 区画入力欄があるのでクリック外しは入力欄外のみ
+  setTimeout(()=>document.addEventListener('click',(e)=>{
+    if(!panel.contains(e.target)){panel.remove();}
+  },{once:true}),0);
+}
+
+function setSectionFromMenu(locId,day,clear=false){
+  if(!locSections[locId])locSections[locId]={};
+  if(clear){
+    delete locSections[locId][day];
+  } else {
+    const inp=document.getElementById(`sec-input-${locId}-${day}`);
+    const val=inp?inp.value.trim():'';
+    if(val)locSections[locId][day]=val;
+    else delete locSections[locId][day];
+  }
+  const panel=document.getElementById('car-select-panel');
+  if(panel)panel.remove();
+  saveAll();
+  renderResult(true);
 }
 
 /* ===== シフト表から直接候補日をトグル ===== */
@@ -3026,6 +3067,7 @@ function downloadViewer(){
   const sj=JSON.stringify(staff.map(s=>({id:s.id,name:s.name,abbr:staffAbbr(s),color:s.color||'#4CAF50',carNo:s.carNo||null})));
   const lj=JSON.stringify(locs.map(l=>({id:l.id,name:l.name,abbr:locAbbr(l),detail:l.detail||''})));
   const coj=JSON.stringify(carDailyOverride);
+  const secj=JSON.stringify(locSections||{});
   const html=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>${ml} シフト表</title>
 <style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif;background:#f5f5f0;color:#1a1a1a;font-size:14px;}header{background:#534AB7;color:white;padding:16px 20px;}header h1{font-size:18px;font-weight:500;margin-bottom:10px;}.fr{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}.fr label{font-size:13px;opacity:.85;}select.f{padding:5px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.4);font-size:13px;background:white;color:#1a1a1a;cursor:pointer;}.htabs{display:flex;gap:0;margin-bottom:16px;border-radius:8px;overflow:hidden;border:0.5px solid #534AB7;}.htab{padding:10px 20px;font-size:13px;font-weight:500;cursor:pointer;color:#534AB7;background:white;border:none;flex:1;text-align:center;}.htab.active{background:#534AB7;color:white;}.main{padding:16px;max-width:1000px;margin:0 auto;}.card{background:white;border-radius:12px;padding:1rem;margin-bottom:1rem;border:.5px solid #e5e5e0;}.ct{font-size:11px;font-weight:500;color:#999;letter-spacing:.05em;text-transform:uppercase;margin-bottom:10px;}.tw{overflow-x:auto;}table{border-collapse:collapse;min-width:100%;font-size:12px;}th,td{padding:5px 6px;border:.5px solid #e5e5e0;text-align:center;white-space:nowrap;}th{background:#f5f5f0;font-weight:500;color:#666;}td:first-child{text-align:left;}.cw{background:#E1F5EE;color:#085041;font-weight:500;}.co{color:#ccc;}.ch{background:#f5f5f0;color:#bbb;}.cu{background:#FAEEDA;color:#633806;}.dh{color:#c0392b;}.dc{background:white;border-radius:10px;padding:12px;margin-bottom:10px;border:.5px solid #e5e5e0;}.dh2{font-size:15px;font-weight:500;margin-bottom:8px;padding-bottom:6px;border-bottom:.5px solid #e5e5e0;}.ar{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:.5px solid #f0f0ea;}.ar:last-child{border-bottom:none;}.lp{font-size:11px;padding:2px 8px;border-radius:99px;background:#EEEDFE;color:#3C3489;font-weight:500;min-width:80px;text-align:center;}.sn2{font-size:13px;font-weight:500;}.nr{text-align:center;padding:2rem;color:#999;font-size:13px;}.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}.cal-dow{text-align:center;font-size:11px;font-weight:500;padding:4px 0;}.cal-day{min-height:80px;border:0.5px solid #e5e5e0;border-radius:6px;padding:4px;background:white;}.cal-day.hol{background:#fafafa;}.cal-dn{font-size:12px;font-weight:500;margin-bottom:3px;}.cal-entry{font-size:10px;padding:2px 5px;border-radius:3px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}.legend{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}.leg{display:flex;align-items:center;gap:4px;font-size:11px;}.leg-dot{width:12px;height:12px;border-radius:3px;}.sticky-col{position:sticky;left:0;z-index:1;background:white;}.sticky-col-loc{position:sticky;left:0;z-index:1;background:#EEEDFE;}footer{text-align:center;padding:16px;font-size:11px;color:#aaa;}</style></head><body>
 <header><h1>${ml} シフト表</h1>
@@ -3038,7 +3080,7 @@ function downloadViewer(){
 </div>
 <footer>閲覧専用シフト表 ${ml}</footer>
 <script>
-const staff=${sj},locs=${lj},ld=${JSON.stringify(lastLocDates)},as=${JSON.stringify(lastAssignments)},sc=${JSON.stringify(lastSchedule)},co=${coj},days=${days},y=${y},m=${m};
+const staff=${sj},locs=${lj},ld=${JSON.stringify(lastLocDates)},as=${JSON.stringify(lastAssignments)},sc=${JSON.stringify(lastSchedule)},co=${coj},sec=${secj},days=${days},y=${y},m=${m};
 const circledNum=n=>['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩','⑪','⑫'][n-1]||String(n);
 const DOW=['日','月','火','水','木','金','土'];
 const sf=document.getElementById('sf'),lf=document.getElementById('lf');
@@ -3059,7 +3101,12 @@ function cellLoc(d,l){
   if(aid===-1)return'<td class="ch">―</td>';
   if(!aid||aid===null)return'<td class="cu">未</td>';
   const s=staff.find(x=>x.id===aid);
-  return'<td class="cw">'+(s?s.abbr:'?')+'</td>';
+  const car=(co[s?.id]||{})[d]!==undefined?(co[s?.id]||{})[d]:s?.carNo;
+  const carLabel=car?circledNum(car):'';
+  const section=(sec[l.id]||{})[d]||'';
+  const dot=section?'<span style="position:absolute;top:1px;right:1px;width:5px;height:5px;border-radius:50%;background:#F59E0B;pointer-events:none;"></span>':'';
+  const tip=(s?s.abbr:'?')+(section?' ['+section+']':'');
+  return'<td class="cw" style="position:relative;" title="'+tip+'">'+carLabel+(s?s.abbr:'?')+dot+'</td>';
 }
 function rt(sid,lid){
   const fl=lid==='all'?locs:locs.filter(l=>String(l.id)===lid);
@@ -3095,7 +3142,9 @@ function rl(sid,lid){
       if(aid===-1)return'';
       if(sid!=='all'&&String(aid)!==sid)return'';
       const s=staff.find(x=>x.id===aid);
-      return'<div class="ar"><span class="lp">'+l.name+'</span><span class="sn2">'+(s?s.name:'<span style="color:#A32D2D;">未割当</span>')+'</span></div>';
+      const section=(sec[l.id]||{})[d]||'';
+      const secBadge=section?'<span style="font-size:10px;color:#92400E;background:#FEF3C7;border-radius:4px;padding:1px 5px;margin-left:4px;">'+section+'</span>':'';
+      return'<div class="ar"><span class="lp">'+l.name+secBadge+'</span><span class="sn2">'+(s?s.name:'<span style="color:#A32D2D;">未割当</span>')+'</span></div>';
     }).filter(Boolean).join('');
     if(!rows&&sid!=='all')continue;
     h+='<div class="dc"><div class="dh2" style="color:'+(isH?'#c0392b':'#1a1a1a')+';">'+d+'日（'+dw+'）</div>'+(rows||'<div class="nr">出店なし</div>')+'</div>';
@@ -3119,7 +3168,8 @@ function renderCal(){
       const hex=s.color.replace('#','');
       const r=parseInt(hex.substr(0,2),16),g=parseInt(hex.substr(2,2),16),b=parseInt(hex.substr(4,2),16);
       const tc=(0.299*r+0.587*g+0.114*b)/255>0.5?'#1a1a1a':'white';
-      return'<div class="cal-entry" style="background:'+s.color+';color:'+tc+';" title="'+l.name+'：'+s.name+'"><span style="opacity:0.8;font-size:9px;">'+l.abbr+'</span> '+s.abbr+'</div>';
+      const calSec=(sec[l.id]||{})[d]||'';
+      return'<div class="cal-entry" style="background:'+s.color+';color:'+tc+';" title="'+l.name+(calSec?' ['+calSec+']':'')+'：'+s.name+'"><span style="opacity:0.8;font-size:9px;">'+l.abbr+'</span> '+s.abbr+'</div>';
     }).filter(Boolean).join('');
     cells+='<div class="cal-day'+(isH?' hol':'')+'"><div class="cal-dn" style="color:'+(isH?'#c0392b':'#1a1a1a')+';">'+d+'</div>'+(entries||'<div style="color:#ddd;font-size:9px;">―</div>')+'</div>';
   }
@@ -3176,7 +3226,7 @@ async function executeMonthlyUpdate(){
     // 希望休をリセット
     wishes={};
     // シフト表をリセット
-    lastSchedule=null;lastAssignments=null;lastLocDates=null;lastMonthInfo=null;traineeAssignments={};
+    lastSchedule=null;lastAssignments=null;lastLocDates=null;lastMonthInfo=null;traineeAssignments={};locSections={};
 
     // 翌月に進める
     const[y,m]=archiveKey.split('-').map(Number);
@@ -3322,7 +3372,7 @@ async function resetWishes(){
 /* --- シフト表リセット --- */
 async function resetShiftTable(){
   if(!confirm('シフト表をリセットしますか？（生成済みシフトが消えます）'))return;
-  lastSchedule=null;lastAssignments=null;lastLocDates=null;lastMonthInfo=null;traineeAssignments={};
+  lastSchedule=null;lastAssignments=null;lastLocDates=null;lastMonthInfo=null;traineeAssignments={};locSections={};
   saveAll();
   document.getElementById('result-area').innerHTML='<div style="text-align:center;padding:3rem;color:#888;"><p style="margin-bottom:1rem;">設定が完了したらシフトを自動生成できます</p><button class="btn btn-primary" onclick="generate()">シフトを自動生成</button></div>';
   setStatus('シフト表をリセットしました');
@@ -3617,6 +3667,7 @@ window._setAppVars = function(v){
   backupLocDates=v.backupLocDates||null;backupMonthInfo=v.backupMonthInfo||null;
   carDailyOverride=v.carDailyOverride||{};
   traineeAssignments=v.traineeAssignments||{};
+  locSections=v.locSections||{};
 };
 
 </script>
