@@ -1637,8 +1637,9 @@ function renderResult(keepScroll){
       const s=sid?staff.find(x=>x.id===sid):null;
       // 号車取得（carDailyOverride優先、なければcarNo）
       const car=s?((carDailyOverride[s.id]||{})[d]!==undefined?(carDailyOverride[s.id]||{})[d]:(s.carNo||null)):null;
-      const carDup=car&&dupCarByDay[d]?.has(car);
-      const carLabel=car?(carDup?`<span style="color:#c0392b;font-weight:bold;">${circledNum(car)}</span>`:circledNum(car)):'';
+      const isTraineeMain=s?getRoleOnDay(s,d)==='trainee':false;
+      const carDup=car&&!isTraineeMain&&dupCarByDay[d]?.has(car);
+      const carLabel=(!car||isTraineeMain)?'':(carDup?`<span style="color:#c0392b;font-weight:bold;">${circledNum(car)}</span>`:circledNum(car));
       // traineeAssignmentsの研修中スタッフ（main担当と重複除く）
       const tArr=(traineeAssignments[l.id]?.[d]||[]).filter(tid=>tid!==sid);
       const tStaff=tArr.length>0?staff.find(x=>x.id===tArr[0]):null;
@@ -1647,8 +1648,8 @@ function renderResult(keepScroll){
       const soloExtra=!s&&tArr.length>1?staff.find(x=>x.id===tArr[1]):null;
       let label,cls,titleStr;
       if(soloTrainee){
-        const soloCar=((carDailyOverride[soloTrainee.id]||{})[d]!==undefined?(carDailyOverride[soloTrainee.id]||{})[d]:(soloTrainee.carNo||null));
-        const soloCarLabel=soloCar?circledNum(soloCar):'';
+        const soloCar=null; // 研修中スタッフは号車非表示
+        const soloCarLabel='';
         label=soloExtra
           ?`<span style="font-size:9px;color:#6B21A8;">🔰${soloCarLabel}${staffAbbr(soloTrainee)}+${staffAbbr(soloExtra)}</span>`
           :`<span style="font-size:9px;color:#6B21A8;">🔰${soloCarLabel}${staffAbbr(soloTrainee)}</span>`;
@@ -1656,9 +1657,9 @@ function renderResult(keepScroll){
         titleStr=soloTrainee.name+'(研修)'+(soloExtra?`+${soloExtra.name}(研修)`:'');
       } else {
         const mainLabel=s?`${carLabel}${staffAbbr(s)}`:'未';
-        const tCarLabel=tStaff?((carDailyOverride[tStaff.id]||{})[d]!==undefined?(carDailyOverride[tStaff.id]||{})[d]:(tStaff.carNo||null)):null;
+        // 研修中スタッフは号車非表示
         label=tStaff
-          ?`${mainLabel}<span style="font-size:9px;color:#6B21A8;">+${tCarLabel?circledNum(tCarLabel):''}${staffAbbr(tStaff)}</span>`
+          ?`${mainLabel}<span style="font-size:9px;color:#6B21A8;">+${staffAbbr(tStaff)}</span>`
           :mainLabel;
         cls=s?'c-work':'c-unassigned';
         titleStr=(s?s.name:'未割当')+(tStaff?`+${tStaff.name}(研修)`:'')+(car?` ${circledNum(car)}号車`:'');
@@ -1687,10 +1688,10 @@ function renderResult(keepScroll){
       const d=i+1,v=sched[d];
       if(v){
         const car=(carDailyOverride[s.id]||{})[d]!==undefined?(carDailyOverride[s.id]||{})[d]:defaultCar;
-        const carDup=car&&dupCarByDay[d]?.has(car);
-        const carLabel=car?(carDup?`<span style="color:#c0392b;font-weight:bold;">${circledNum(car)}</span>`:circledNum(car)):'';
-        const abbr=locAbbrByName(v);
         const isT=getRoleOnDay(s,d)==='trainee';
+        const carDup=car&&!isT&&dupCarByDay[d]?.has(car);
+        const carLabel=(!car||isT)?'':(carDup?`<span style="color:#c0392b;font-weight:bold;">${circledNum(car)}</span>`:circledNum(car));
+        const abbr=locAbbrByName(v);
         const hasHistory=s.roleHistory&&Object.keys(s.roleHistory).length>0;
         const ctxFn=(isT||hasHistory)?`openTraineeMenu(event,${s.id},${d})`:`openStaffContextMenu(event,${s.id},${d})`;
         const tipSuffix=(isT||hasHistory)?'（右クリック：昇格設定変更）':'（右クリック：号車変更・区画設定）';
