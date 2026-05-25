@@ -1690,8 +1690,9 @@ function renderResult(keepScroll){
         const carLabel=car?(carDup?`<span style="color:#c0392b;font-weight:bold;">${circledNum(car)}</span>`:circledNum(car)):'';
         const abbr=locAbbrByName(v);
         const isT=getRoleOnDay(s,d)==='trainee';
-        const ctxFn=isT?`openTraineeMenu(event,${s.id},${d})`:`openStaffContextMenu(event,${s.id},${d})`;
-        const tipSuffix=isT?'（右クリック：フルタイム昇格）':'（右クリック：号車変更・区画設定）';
+        const hasHistory=s.roleHistory&&Object.keys(s.roleHistory).length>0;
+        const ctxFn=(isT||hasHistory)?`openTraineeMenu(event,${s.id},${d})`:`openStaffContextMenu(event,${s.id},${d})`;
+        const tipSuffix=(isT||hasHistory)?'（右クリック：昇格設定変更）':'（右クリック：号車変更・区画設定）';
         const traineeIcon=isT?'🔰':'';
         // 担当場所のlocIdを特定して区画を取得
         const stLoc=locs.find(l=>l.name===v);
@@ -1709,7 +1710,7 @@ function renderResult(keepScroll){
           ${s.name}
         </div>
       </td>
-      ${cells}<td class="col-total" style="font-weight:500;">${cnt}</td></tr>`;
+      ${cells}<td class="col-total" style="font-weight:500;position:sticky;right:0;background:white;">${cnt}</td></tr>`;
   }).join('');
 
   // スタッフ別：日別出勤人数合計行・総合計
@@ -1722,7 +1723,7 @@ function renderResult(keepScroll){
   const staffTotalRow=`<tr style="border-top:1px solid #ddd;">
     <td class="col-name" style="position:sticky;left:0;z-index:1;background:#f0f0ea;font-size:11px;font-weight:500;color:#534AB7;white-space:nowrap;padding:4px 6px;min-width:${nameColW};">日別出勤計</td>
     ${staffTotalByDay}
-    <td class="col-total" style="text-align:center;font-size:11px;font-weight:500;background:#f0f0ea;color:#534AB7;">${staffGrandTotal}</td></tr>`;
+    <td class="col-total" style="text-align:center;font-size:11px;font-weight:500;background:#f0f0ea;color:#534AB7;position:sticky;right:0;">${staffGrandTotal}</td></tr>`;
 
   const prevEditMsg=document.getElementById('edit-msg');
   const editMsgHtml=prevEditMsg&&prevEditMsg.style.display!=='none'
@@ -1786,7 +1787,7 @@ function renderResult(keepScroll){
           <thead><tr>
             <th class="col-name" style="position:sticky;top:0;left:0;z-index:3;background:#f5f5f0;text-align:left;min-width:${nameColW};">名前</th>
             ${hdrs}
-            <th class="col-total" style="position:sticky;top:0;background:#f5f5f0;z-index:2;">計</th>
+            <th class="col-total" style="position:sticky;top:0;right:0;background:#f5f5f0;z-index:3;">計</th>
           </tr></thead>
           <tbody>${staffRows}${staffTotalRow}</tbody>
         </table>
@@ -2666,14 +2667,66 @@ function openTraineeMenu(e,sid,day){
     panel.appendChild(div);
   };
 
-  // この日からフルタイムに昇格
-  makeItem(`📅 ${day}日からフルタイムに昇格`,()=>{
-    graduateTrainee(sid, day, 'full');
-  });
-  // 月初からフルタイムに昇格
-  makeItem('📅 月初からフルタイムに昇格',()=>{
-    graduateTrainee(sid, 1, 'full');
-  });
+  const curRole=getRoleOnDay(s,day);
+  const hasHistory=s.roleHistory&&Object.keys(s.roleHistory).length>0;
+
+  if(curRole==='trainee'){
+    // 研修中→昇格メニュー
+    makeItem(`📅 ${day}日からフルタイムに昇格`,()=>{ graduateTrainee(sid,day,'full'); });
+    makeItem('📅 月初からフルタイムに昇格',()=>{ graduateTrainee(sid,1,'full'); });
+  } else if(hasHistory){
+    // 昇格済み→変更メニュー
+    // 現在のroleHistory確認
+    const histKeys=Object.keys(s.roleHistory).map(Number).sort((a,b)=>a-b);
+    const graduatedDay=histKeys[histKeys.length-1];
+    makeItem(`📅 昇格日を変更（現在: ${graduatedDay}日〜）`,()=>{
+      // 日付入力ダイアログ
+      const newDay=parseInt(prompt(`新しい昇格開始日を入力（1〜${lastMonthInfo?.days||31}）:`, graduatedDay));
+      if(!newDay||isNaN(newDay)||newDay<1)return;
+      // 古いhistoryを削除して新しい日付で再設定
+      delete s.roleHistory[graduatedDay];
+      if(newDay<=1){ s.roleHistory={}; s.role='full'; }
+      else { s.roleHistory[newDay]='full'; }
+      // traineeAssignmentsの再調整
+      Object.keys(traineeAssignments).forEach(lid=>{
+        const locId=Number(lid);
+        Object.keys(traineeAssignments[locId]||{}).forEach(d=>{
+          const dd=Number(d);
+          const arr=traineeAssignments[locId][dd]||[];
+          if(!arr.includes(sid))return;
+          if(dd>=newDay){
+            traineeAssignments[locId][dd]=arr.filter(x=>x!==sid);
+            if(!(lastAssignments[locId]?.[dd]>0)) lastAssignments[locId][dd]=sid;
+          } else if(dd>=graduatedDay&&dd<newDay){
+            // 旧昇格日〜新昇格日の前日: 研修中に戻す
+            if(lastAssignments[locId]?.[dd]===sid) lastAssignments[locId][dd]=null;
+            if(!traineeAssignments[locId][dd])traineeAssignments[locId][dd]=[];
+            if(!traineeAssignments[locId][dd].includes(sid)) traineeAssignments[locId][dd].push(sid);
+          }
+        });
+      });
+      saveAll(); renderStaff(); renderResult(true);
+      showEditMsg(`${s.name}：昇格日を${newDay}日に変更しました`);
+    });
+    makeItem('↩️ 研修中に戻す（昇格を取り消し）',()=>{
+      if(!confirm(`${s.name}の昇格を取り消して研修中に戻しますか？`))return;
+      // lastAssignmentsから除去してtraineeAssignmentsに戻す
+      Object.keys(traineeAssignments).forEach(lid=>{
+        const locId=Number(lid);
+        Object.keys(lastAssignments[locId]||{}).forEach(d=>{
+          if(Number(d)>=graduatedDay&&lastAssignments[locId][d]===sid){
+            lastAssignments[locId][d]=null;
+            if(!traineeAssignments[locId])traineeAssignments[locId]={};
+            if(!traineeAssignments[locId][d])traineeAssignments[locId][d]=[];
+            traineeAssignments[locId][d].push(sid);
+          }
+        });
+      });
+      s.roleHistory={}; s.role='trainee';
+      saveAll(); renderStaff(); renderResult(true);
+      showEditMsg(`${s.name}：研修中に戻しました`);
+    });
+  }
 
   document.addEventListener('click',()=>panel.remove(),{once:true});
   document.body.appendChild(panel);
