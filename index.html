@@ -1609,9 +1609,10 @@ function renderResult(keepScroll){
   for(let d=1;d<=days;d++){
     const carCount={};
     staff.forEach(s=>{
+      // 研修中スタッフは号車重複チェックから除外
+      if(getRoleOnDay(s,d)==='trainee')return;
       const car=(carDailyOverride[s.id]||{})[d]!==undefined?(carDailyOverride[s.id]||{})[d]:(s.carNo||null);
       if(!car)return;
-      // その日に出勤しているスタッフのみカウント
       const sched=(lastSchedule||{})[s.id]||{};
       if(!sched[d])return;
       carCount[car]=(carCount[car]||0)+1;
