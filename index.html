@@ -2247,7 +2247,10 @@ function rc(){
       const r=parseInt(hex.substr(0,2),16),g=parseInt(hex.substr(2,2),16),b=parseInt(hex.substr(4,2),16);
       const tc=(0.299*r+0.587*g+0.114*b)/255>0.5?'#1a1a1a':'white';
       const det=sd&&l.detail?'<div class="cal-detail">'+l.detail+'</div>':'';
-      return'<div class="cal-entry" style="background:'+s.color+';color:'+tc+';" title="'+l.name+(l.detail?' | '+l.detail:'')+'：'+s.name+'"><span style="opacity:0.8;font-size:9px;">'+l.abbr+'</span> '+s.abbr+det+'</div>';
+      const rco=(co[s.id]||{})[d]!==undefined?(co[s.id]||{})[d]:(s.carNo||null);
+      const rcIsT=s.roleHistory&&Object.keys(s.roleHistory).some(k=>Number(k)<=d&&s.roleHistory[k]!=='trainee')?false:(s.role==='trainee');
+      const rcCar=(rco&&!rcIsT)?circledNum(rco):'';
+      return'<div class="cal-entry" style="background:'+s.color+';color:'+tc+';" title="'+l.name+(l.detail?' | '+l.detail:'')+'：'+s.name+'"><span style="opacity:0.8;font-size:9px;">'+l.abbr+'</span> '+rcCar+s.abbr+det+'</div>';
     }).filter(Boolean).join('');
     c+='<div class="cal-day'+(isH?' hol':'')+'"><div class="cal-dn" style="color:'+(isH?'#c0392b':'#1a1a1a')+';">'+d+'</div>'+(en||'<div style="color:#ddd;font-size:9px;">―</div>')+'</div>';
   }
@@ -2262,7 +2265,7 @@ rc();
 /* ===== インスタグラム用画像生成 ===== */
 function generateInstaImages(){
   if(!lastMonthInfo){alert('先にシフトを生成してください');return;}
-  const{days,y,m}=lastMonthInfo;
+  const{days,y,m,key}=lastMonthInfo;
   const locDates=lastLocDates||{};const assignments=lastAssignments||{};
   locs.forEach(l=>{if(!locDates[l.id])locDates[l.id]=[];if(!assignments[l.id])assignments[l.id]={};});
   const DOW_S=['日','月','火','水','木','金','土'];
@@ -2345,7 +2348,10 @@ function generateInstaImages(){
 
   // 画像2は少し遅らせて別々にダウンロード
   setTimeout(()=>{
-    const activeLocs=locs.filter(l=>(locDates[l.id]||[]).some(d=>{
+    // シフト表の実際の出店日を使用（候補日除外を反映）
+    const effectiveLocDates2={};
+    locs.forEach(l=>{effectiveLocDates2[l.id]=getEffectiveDates(l.id,key)||locDates[l.id]||[];});
+    const activeLocs=locs.filter(l=>effectiveLocDates2[l.id].some(d=>{
       const sid=(assignments[l.id]||{})[d];return sid&&sid>0;
     }));
 
