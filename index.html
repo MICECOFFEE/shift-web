@@ -3577,8 +3577,21 @@ function renderPoster(callback){
 
   const locUsed=[];
   if(locs&&locs.length>0){
+    const _key=lastMonthInfo?.key;
     locs.forEach(l=>{
-      const ldl=(lastLocDates&&lastLocDates[l.id])||[];
+      // シフト表と同じく候補日除外を反映した実際の出店日を使用
+      let ldl=[];
+      if(_key){
+        const eff=getEffectiveDates(l.id,_key);
+        // さらに実際に割り当てがある日のみ（lastAssignmentsがある場合）
+        if(lastAssignments&&lastAssignments[l.id]){
+          ldl=eff.filter(d=>{const sid=lastAssignments[l.id][d];return sid&&sid>0;});
+        } else {
+          ldl=eff;
+        }
+      } else {
+        ldl=(lastLocDates&&lastLocDates[l.id])||[];
+      }
       if(ldl.length>0)locUsed.push({id:l.id,name:l.name,addr:l.address||'',time:l.hours||'',days:ldl});
     });
   }
