@@ -2321,10 +2321,15 @@ function generateInstaImages(){
       const sid=(assignments[l.id]||{})[d];
       if(!sid||sid<=0)return;
       // 場所名テキスト（フルネーム、収まらなければ切り詰め）
+      const calSid=(assignments[l.id]||{})[d];
+      const calS=calSid?staff.find(x=>x.id===calSid):null;
+      const calCar=calS?((carDailyOverride[calS.id]||{})[d]!==undefined?(carDailyOverride[calS.id]||{})[d]:(calS.carNo||null)):null;
+      const calIsTrainee=calS?getRoleOnDay(calS,d)==='trainee':false;
+      const calCarStr=(calCar&&!calIsTrainee)?circledNum(calCar):'';
       ctx.fillStyle='#1a1a1a';
       ctx.font=`${fontSize}px sans-serif`;ctx.textAlign='left';
-      // 最大幅に収まるよう切り詰め
-      let name=l.name;
+      // 号車+場所名を最大幅に収まるよう切り詰め
+      let name=calCarStr+l.name;
       while(ctx.measureText(name).width>cW-8&&name.length>2)name=name.slice(0,-1);
       ctx.fillText(name,cx+4,ey);
       ey+=fontSize+3;
@@ -2380,10 +2385,10 @@ function generateInstaImages(){
       const ay=96+row*rowH;
       const maxW=colW-48;
 
-      // 交互背景（行単位）
-      if(row%2===1){
+      // 交互背景（エントリ単位：左右独立）
+      if(i%2===1){
         ctx2.fillStyle='#F0EDE4';
-        ctx2.fillRect(0,ay,W2,rowH);
+        ctx2.fillRect(x,ay,colW,rowH);
       }
 
       // 行下区切り線
