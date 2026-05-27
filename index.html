@@ -3577,27 +3577,33 @@ function renderPoster(callback){
 
   const locUsed=[];
   if(locs&&locs.length>0){
-    const _key=lastMonthInfo?.key;
     locs.forEach(l=>{
-      // シフト表と同じく候補日除外を反映した実際の出店日を使用
+      // lastAssignmentsで実際に割り当てがある日を使用（候補日除外を自動反映）
       let ldl=[];
-      if(_key){
-        const eff=getEffectiveDates(l.id,_key);
-        // さらに実際に割り当てがある日のみ（lastAssignmentsがある場合）
-        if(lastAssignments&&lastAssignments[l.id]){
-          ldl=eff.filter(d=>{const sid=lastAssignments[l.id][d];return sid&&sid>0;});
-        } else {
-          ldl=eff;
+      if(lastAssignments&&lastAssignments[l.id]){
+        const allDays=new Date(Y,M,0).getDate();
+        for(let d=1;d<=allDays;d++){
+          const sid=lastAssignments[l.id][d];
+          if(sid&&sid>0)ldl.push(d);
         }
-      } else {
-        ldl=(lastLocDates&&lastLocDates[l.id])||[];
       }
+      // 割り当てがない場合はlastLocDatesにフォールバック
+      if(!ldl.length)ldl=(lastLocDates&&lastLocDates[l.id])||[];
       if(ldl.length>0)locUsed.push({id:l.id,name:l.name,addr:l.address||'',time:l.hours||'',days:ldl});
     });
   }
   const visLocs=locUsed.length>0?locUsed:(locs||[]).map(l=>({id:l.id,name:l.name,addr:l.address||'',time:l.hours||'',days:[]}));
 
-  const SCALE=2,cW=794,cH=1123;
+  // 場所数に応じてcanvas高さを動的計算
+  const _locRowsEst=Math.ceil(((locs||[]).length)/2);
+  const _locAreaEst=22+_locRowsEst*26+8;
+  const _recAreaEst=72;
+  const _footerEst=30;
+  const _minH=1123;
+  const _calAreaMin=480; // カレンダー最低高さ
+  const _calTop=108;
+  const _needH=_calTop+_calAreaMin+16+_locAreaEst+_recAreaEst+_footerEst;
+  const SCALE=2,cW=794,cH=Math.max(_minH,_needH);
   canvas.width=cW*SCALE;canvas.height=cH*SCALE;
   const ctx=canvas.getContext('2d');
   ctx.scale(SCALE,SCALE);
