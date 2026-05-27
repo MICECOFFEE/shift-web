@@ -3776,37 +3776,37 @@ function renderPoster(callback){
   // ===== スタッフ募集枠 =====
   const actualLocH=locRows*CELL_H_CALC;
   let recTop=listTop+actualLocH+6;
-  const recH=64;
-  const qrSize=recH-8;
-  _rrect(ctx,14,recTop,cW-28,recH,6,'#FDF0D8','#C9A882',0.8);
+  // QRサイズを固定(70px)、枠高さをQRに合わせる
+  const qrSize=70;
+  const recH=qrSize+8;
+  const recW=cW-28;
+  _rrect(ctx,14,recTop,recW,recH,6,'#FDF0D8','#C9A882',0.8);
 
+  // 左側：テキスト（枠幅の左70%）
+  const textCX=14+recW*0.38;
   ctx.fillStyle=BROWN;ctx.font='bold 13px sans-serif';ctx.textAlign='center';ctx.textBaseline='top';
-  ctx.fillText('販売スタッフ募集中！！',cW/2,recTop+6);
+  ctx.fillText('販売スタッフ募集中！！',textCX,recTop+6);
   ctx.fillStyle=TXT;ctx.font='9px sans-serif';
-  ctx.fillText('詳しくはスタッフまたはインスタグラムの',cW/2,recTop+22);
-  ctx.fillText('ダイレクトメールでお問い合わせください。',cW/2,recTop+33);
+  ctx.fillText('詳しくはスタッフまたはインスタグラムの',textCX,recTop+22);
+  ctx.fillText('ダイレクトメールでお問い合わせください。',textCX,recTop+33);
   ctx.fillStyle=MUTED;ctx.font='8px sans-serif';
-  ctx.fillText('https://www.instagram.com/100g_coffee/',cW/2,recTop+46);
+  ctx.fillText('https://www.instagram.com/100g_coffee/',textCX,recTop+47);
 
-  // QR：テキストブロック右端のすぐ右横
-  // テキスト最大幅を測定してQR位置を決定
-  ctx.font='9px sans-serif';
-  const textMaxW=Math.max(
-    ctx.measureText('詳しくはスタッフまたはインスタグラムの').width,
-    ctx.measureText('ダイレクトメールでお問い合わせください。').width
-  );
-  const qrX=Math.ceil(cW/2+textMaxW/2+6);  // テキスト右端+6px
+  // 右側：QRコードを枠内右端に固定配置
+  const qrX=14+recW-qrSize-6;
+  const qrY=recTop+4;
   function drawQR(){
-    ctx.drawImage(_QR_IMG,qrX,recTop+4,qrSize,qrSize);
+    ctx.drawImage(_QR_IMG,qrX,qrY,qrSize,qrSize);
   }
   if(_QR_IMG.complete&&_QR_IMG.naturalWidth>0){drawQR();}
   else{_QR_IMG.onload=drawQR;}
 
-  // 下部バー
-  ctx.fillStyle=BROWN;ctx.fillRect(0,cH-26,cW,26);
-  ctx.fillStyle=GOLD;ctx.fillRect(0,cH-28,cW,3);
+  // 下部バー（recTopの直下）
+  const barY=recTop+recH+4;
+  ctx.fillStyle=GOLD;ctx.fillRect(0,barY,cW,3);
+  ctx.fillStyle=BROWN;ctx.fillRect(0,barY+3,cW,26);
   ctx.fillStyle='#FFFFFF';ctx.font='9px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
-  ctx.fillText('ＭＩＣＥコーヒーサービス株式会社',cW/2,cH-13);
+  ctx.fillText('ＭＩＣＥコーヒーサービス株式会社',cW/2,barY+3+13);
 
   wrap.style.display='block';
   if(callback)callback();
