@@ -2175,8 +2175,11 @@ function renderOverview(){
       const textCol=lum>0.5?'#1a1a1a':'white';
       const showDetail=document.getElementById('show-detail')?.checked&&l.detail;
       const detailHtml=showDetail?`<div style="font-size:9px;opacity:0.85;overflow:hidden;text-overflow:ellipsis;">${l.detail}</div>`:'';
+      const ovCar=(carDailyOverride[s.id]||{})[d]!==undefined?(carDailyOverride[s.id]||{})[d]:(s.carNo||null);
+      const ovIsT=getRoleOnDay(s,d)==='trainee';
+      const ovCarLabel=(ovCar&&!ovIsT)?circledNum(ovCar):'';
       return`<div style="background:${bg};color:${textCol};font-size:10px;padding:2px 5px;border-radius:3px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${l.name}${l.detail?' | '+l.detail:''}：${s.name}">
-        <span style="opacity:0.8;font-size:9px;">${locAbbr(l)}</span> ${staffAbbr(s)}${detailHtml}
+        <span style="opacity:0.8;font-size:9px;">${locAbbr(l)}</span> ${ovCarLabel}${staffAbbr(s)}${detailHtml}
       </div>`;
     }).filter(Boolean).join('');
 
@@ -2321,15 +2324,9 @@ function generateInstaImages(){
       const sid=(assignments[l.id]||{})[d];
       if(!sid||sid<=0)return;
       // 場所名テキスト（フルネーム、収まらなければ切り詰め）
-      const calSid=(assignments[l.id]||{})[d];
-      const calS=calSid?staff.find(x=>x.id===calSid):null;
-      const calCar=calS?((carDailyOverride[calS.id]||{})[d]!==undefined?(carDailyOverride[calS.id]||{})[d]:(calS.carNo||null)):null;
-      const calIsTrainee=calS?getRoleOnDay(calS,d)==='trainee':false;
-      const calCarStr=(calCar&&!calIsTrainee)?circledNum(calCar):'';
       ctx.fillStyle='#1a1a1a';
       ctx.font=`${fontSize}px sans-serif`;ctx.textAlign='left';
-      // 号車+場所名を最大幅に収まるよう切り詰め
-      let name=calCarStr+l.name;
+      let name=l.name;
       while(ctx.measureText(name).width>cW-8&&name.length>2)name=name.slice(0,-1);
       ctx.fillText(name,cx+4,ey);
       ey+=fontSize+3;
