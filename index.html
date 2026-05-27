@@ -3594,16 +3594,25 @@ function renderPoster(callback){
   }
   const visLocs=locUsed.length>0?locUsed:(locs||[]).map(l=>({id:l.id,name:l.name,addr:l.address||'',time:l.hours||'',days:[]}));
 
-  // 場所数に応じてcanvas高さを動的計算
-  const _locRowsEst=Math.ceil(((locs||[]).length)/2);
-  const _locAreaEst=22+_locRowsEst*26+8;
-  const _recAreaEst=72;
-  const _footerEst=30;
-  const _minH=1123;
-  const _calAreaMin=480; // カレンダー最低高さ
-  const _calTop=108;
-  const _needH=_calTop+_calAreaMin+16+_locAreaEst+_recAreaEst+_footerEst;
-  const SCALE=2,cW=794,cH=Math.max(_minH,_needH);
+  // canvas高さを正確に計算（listTop→recTop→フッターの順に積み上げ）
+  const _cW=794,_calTop=108,_calAreaMin=480;
+  const _weeks=Math.ceil((firstDow+days)/7);
+  const _locRows=Math.ceil(visLocs.length/2);
+  const _CELL_H=24; // CELL_H_CALC相当
+  const _LOC_CELL_H=26;
+  // rowHは(cH確定前なので)最低値42pxで計算、後でcalAreaHから再計算
+  const _locAreaH=22+_locRows*_LOC_CELL_H+8;
+  const _recH=64,_footerH=28,_margin=10;
+  // cellTop+weeks*rowH+10 = listTop、そこにloc一覧+rec+footerを積む
+  // rowHを先に決める：固定高さを差し引いた残りをカレンダーに割り当て
+  const _overhead=_calTop+16+_margin+_locAreaH+6+_recH+6+_footerH+10;
+  const _availH=Math.max(_calAreaMin,1123-_overhead);
+  const _rowH=Math.max(42,Math.floor(_availH/_weeks));
+  const _cellTop=_calTop+16;
+  const _listTop=_cellTop+_weeks*_rowH+_margin;
+  const _recTop=_listTop+22+_locRows*_CELL_H+6;
+  const _needH=_recTop+_recH+6+_footerH+4;
+  const SCALE=2,cW=_cW,cH=Math.max(1123,_needH);
   canvas.width=cW*SCALE;canvas.height=cH*SCALE;
   const ctx=canvas.getContext('2d');
   ctx.scale(SCALE,SCALE);
