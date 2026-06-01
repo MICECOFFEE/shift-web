@@ -2642,12 +2642,28 @@ function shareShiftToCoffeeApp(){
 
   // FirestoreのshiftSchedulesコレクションに保存
   if(window._shareShiftToFirestore){
-    window._shareShiftToFirestore({
-      month:`${y}-${String(m).padStart(2,'0')}`,
-      schedules:scheduleData,
-      updatedAt:new Date().toISOString()
-    });
-    showEditMsg(`☕ ${scheduleData.length}件のスケジュールをコーヒー管理アプリに共有しました`);
+    // ボタンをローディング状態に
+    const btn = document.querySelector('button[onclick="shareShiftToCoffeeApp()"]');
+    const origText = btn ? btn.textContent : '';
+    if(btn){ btn.textContent = '⏳ 共有中...'; btn.disabled = true; }
+
+    window._shareShiftToFirestore(
+      {
+        month:`${y}-${String(m).padStart(2,'0')}`,
+        schedules:scheduleData,
+        updatedAt:new Date().toISOString()
+      },
+      // 成功コールバック
+      (count) => {
+        if(btn){ btn.textContent = origText; btn.disabled = false; }
+        showEditMsg(`✅ ${count}件のスケジュールをコーヒー管理アプリに共有しました`, 'success');
+      },
+      // エラーコールバック
+      (errMsg) => {
+        if(btn){ btn.textContent = origText; btn.disabled = false; }
+        showEditMsg(`❌ 共有に失敗しました: ${errMsg}`, 'error');
+      }
+    );
   }else{
     alert('Firebase未接続のため共有できません。\nWebアプリ版でご利用ください。');
   }
@@ -3061,10 +3077,29 @@ function setCarOverride(sid,day,carNo){
   });
 }
 
-function showEditMsg(msg){
+function showEditMsg(msg, type){
   setTimeout(()=>{
     const el=document.getElementById('edit-msg');
-    if(el){el.textContent=msg;el.style.display='block';setTimeout(()=>{el.style.display='none';},3000);}
+    if(el){
+      el.textContent=msg;
+      el.style.display='block';
+      // 色分け
+      if(type==='success'){
+        el.style.background='#e8f5e9';
+        el.style.color='#2e7d32';
+        el.style.border='1px solid #a5d6a7';
+      } else if(type==='error'){
+        el.style.background='#fdecea';
+        el.style.color='#c62828';
+        el.style.border='1px solid #ef9a9a';
+      } else {
+        // デフォルト（元のスタイルに戻す）
+        el.style.background='';
+        el.style.color='';
+        el.style.border='';
+      }
+      setTimeout(()=>{el.style.display='none';},4000);
+    }
   },10);
 }
 
@@ -3957,16 +3992,20 @@ window._saveToFirestore = async (data) => {
   }, 800);
 };
 
-window._shareShiftToFirestore = async (shiftData) => {
-  if(!currentUser) return;
+window._shareShiftToFirestore = async (shiftData, onSuccess, onError) => {
+  if(!currentUser) {
+    if(onError) onError('未ログイン');
+    return;
+  }
   try {
     const ref = doc(db, 'shift_schedules', currentUser.uid, 'data', shiftData.month);
     const cleanData = JSON.parse(JSON.stringify(shiftData, (key, val) => val === undefined ? null : val));
     await setDoc(ref, cleanData);
     console.log('シフトデータ共有完了:', shiftData.month, shiftData.schedules.length, '件');
+    if(onSuccess) onSuccess(shiftData.schedules.length);
   } catch(e) {
     console.error('シフト共有エラー:', e);
-    alert('共有に失敗しました: ' + e.message);
+    if(onError) onError(e.message);
   }
 };
 
