@@ -52,6 +52,11 @@ input:focus,select:focus{outline:none;border-color:#534AB7;}
 table.sg{border-collapse:collapse;}
 .sg th,.sg td{padding:5px 6px;font-size:11px;border:0.5px solid #e5e5e0;white-space:nowrap;text-align:center;}
 .sg th{background:#f5f5f0;font-weight:500;color:#666;}
+.sg tbody tr.row-hover td:not(.col-name):not(.col-total){background:#FFF3D6!important;}
+.sg tbody tr.row-hover td.col-name{filter:brightness(0.96);}
+.sg th.col-hover{background:#FFE8A8!important;}
+.sg td.col-hover:not(.row-hover-cell){background:#FFF8E6!important;}
+.sg td.col-hover.row-hover-cell{background:#FFE0A0!important;}
 .sg th.col-name,.sg td.col-name{text-align:left;}
 .sg th.col-total,.sg td.col-total{}
 .c-work{background:#E1F5EE;color:#085041;font-weight:500;}
@@ -1541,12 +1546,72 @@ function syncNameColWidth(){
     if(sw)locCG.children[i].style.width=(typeof sw==='number'?Math.ceil(sw)+'px':sw);
   });
 }
+/* ===== 場所別・スタッフ別の並べ替え ===== */
+function sortLocs(mode){
+  if(mode==='name'){
+    locs.sort((a,b)=>a.name.localeCompare(b.name,'ja'));
+  } else if(mode==='total'){
+    const tot=l=>{
+      const eff=lastMonthInfo?getEffectiveDates(l.id,lastMonthInfo.key):[];
+      const days=eff.length?eff:((lastLocDates||{})[l.id]||[]);
+      return days.filter(d=>{const sid=(lastAssignments?.[l.id]||{})[d];return sid&&sid>0;}).length;
+    };
+    locs.sort((a,b)=>tot(b)-tot(a));
+  }
+  saveAll();
+  renderLocs();
+  if(lastSchedule)renderResult(true);
+}
+function sortStaff(mode){
+  if(mode==='name'){
+    staff.sort((a,b)=>a.name.localeCompare(b.name,'ja'));
+  } else if(mode==='car'){
+    staff.sort((a,b)=>(a.carNo||999)-(b.carNo||999)||a.name.localeCompare(b.name,'ja'));
+  } else if(mode==='total'){
+    const tot=s=>Object.values((lastSchedule||{})[s.id]||{}).filter(v=>v).length;
+    staff.sort((a,b)=>tot(b)-tot(a));
+  }
+  saveAll();
+  renderStaff();
+  if(lastSchedule)renderResult(true);
+}
+function setupHoverHighlight(){
+  document.querySelectorAll('table.sg').forEach(table=>{
+    if(table._hoverInit)return; // 重複登録防止
+    table._hoverInit=true;
+    table.addEventListener('mouseover',e=>{
+      const td=e.target.closest('td,th');
+      if(!td)return;
+      const tr=td.closest('tr');
+      if(!tr||!tr.parentElement||tr.parentElement.tagName!=='TBODY')return;
+      const cellIdx=Array.from(tr.children).indexOf(td);
+      if(cellIdx<0)return;
+      clearHoverHighlight(table);
+      tr.classList.add('row-hover');
+      // 同じ列インデックスのセルをハイライト（thead含む）
+      table.querySelectorAll('tr').forEach(r=>{
+        const cell=r.children[cellIdx];
+        if(cell)cell.classList.add('col-hover');
+      });
+      // 交差セルに専用クラス
+      td.classList.add('row-hover-cell');
+    });
+    table.addEventListener('mouseleave',()=>clearHoverHighlight(table));
+  });
+}
+function clearHoverHighlight(table){
+  table.querySelectorAll('.row-hover').forEach(el=>el.classList.remove('row-hover'));
+  table.querySelectorAll('.col-hover').forEach(el=>el.classList.remove('col-hover'));
+  table.querySelectorAll('.row-hover-cell').forEach(el=>el.classList.remove('row-hover-cell'));
+}
 function setupScrollSync(){
   const loc=document.getElementById('loc-table-wrap');
   const st=document.getElementById('staff-table-wrap');
   if(!loc||!st)return;
   // 名前列幅を同期
   syncNameColWidth();
+  // ホバーハイライトを設定
+  setupHoverHighlight();
   // 既存リスナーの重複防止
   if(loc._syncHandler){loc.removeEventListener('scroll',loc._syncHandler);}
   if(st._syncHandler){st.removeEventListener('scroll',st._syncHandler);}
@@ -1727,6 +1792,57 @@ function renderResult(keepScroll){
     ${staffTotalByDay}
     <td class="col-total" style="text-align:center;font-size:11px;font-weight:500;background:#f0f0ea;color:#534AB7;position:sticky;right:0;">${staffGrandTotal}</td></tr>`;
 
+  // ===== 号車別場所割当表 =====
+  // 使用されている号車番号を収集（研修中は除外）
+  const usedCars=new Set();
+  staff.forEach(s=>{
+    for(let d=1;d<=days;d++){
+      if(getRoleOnDay(s,d)==='trainee')continue;
+      const car=(carDailyOverride[s.id]||{})[d]!==undefined?(carDailyOverride[s.id]||{})[d]:(s.carNo||null);
+      const v=(schedule[s.id]||{})[d];
+      if(car&&v)usedCars.add(car);
+    }
+  });
+  const carNumList=Array.from(usedCars).sort((a,b)=>a-b);
+  const carNameW='56px';
+  const carRows=carNumList.map(carNo=>{
+    const cells=Array.from({length:days},(_,i)=>{
+      const d=i+1;
+      // この日・この号車を担当しているスタッフを探す（研修中は除外）
+      const s=staff.find(st=>{
+        if(getRoleOnDay(st,d)==='trainee')return false;
+        const car=(carDailyOverride[st.id]||{})[d]!==undefined?(carDailyOverride[st.id]||{})[d]:(st.carNo||null);
+        return car===carNo&&(schedule[st.id]||{})[d];
+      });
+      if(!s)return`<td class="c-off">―</td>`;
+      const v=(schedule[s.id]||{})[d];
+      const abbr=locAbbrByName(v);
+      const loc=locs.find(l=>l.name===v);
+      const sec=loc?(locSections[loc.id]||{})[d]||'':'';
+      const secDot=sec?`<span style="position:absolute;top:1px;right:1px;width:5px;height:5px;border-radius:50%;background:#F59E0B;pointer-events:none;"></span>`:'';
+      return`<td class="c-work" style="position:relative;" title="${v}${sec?' ['+sec+']':''}：${s.name}">${abbr}${secDot}</td>`;
+    }).join('');
+    return`<tr>
+      <td class="col-name" style="position:sticky;left:0;z-index:1;background:white;white-space:nowrap;min-width:${carNameW};text-align:center;font-weight:600;">${circledNum(carNo)}号車</td>
+      ${cells}</tr>`;
+  }).join('');
+  const carTableHtml=carNumList.length>0?`
+    <div class="card" style="padding:12px;margin-top:8px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <div class="sec-title" style="margin-bottom:0;">号車別場所割当表</div>
+        <span class="muted" style="font-size:11px;">号車ごとの出店場所一覧（研修中スタッフは除く）</span>
+      </div>
+      <div id="car-table-wrap" style="overflow-x:auto;max-height:300px;overflow-y:auto;">
+        <table class="sg">
+          <thead><tr>
+            <th class="col-name" style="position:sticky;top:0;left:0;z-index:3;background:#f5f5f0;text-align:center;min-width:${carNameW};">号車</th>
+            ${hdrs}
+          </tr></thead>
+          <tbody>${carRows}</tbody>
+        </table>
+      </div>
+    </div>`:'';
+
   const prevEditMsg=document.getElementById('edit-msg');
   const editMsgHtml=prevEditMsg&&prevEditMsg.style.display!=='none'
     ?`<div class="ok-box" id="edit-msg">${prevEditMsg.textContent}</div>`
@@ -1759,43 +1875,7 @@ function renderResult(keepScroll){
       <div class="metric"><div class="metric-label">未割当</div><div class="metric-val" style="color:${warnings.length?'#A32D2D':'#0F6E56'};">${warnings.length}件</div></div>
       <div class="metric"><div class="metric-label">月間総出店</div><div class="metric-val">${totalLocDays}日</div></div>
     </div>
-    ${warnings.length?`<div class="warn-box">未割当：${warnings.slice(0,5).join('　')}${warnings.length>5?` 他${warnings.length-5}件`:''}</div>`:''}
-    ${editMsgHtml}
-    <div class="card" style="padding:12px;">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-        <div class="sec-title" style="margin-bottom:0;">場所別割当表</div>
-        <span class="muted" style="font-size:11px;">クリックで変更 / Shift+クリックで範囲一括設定</span>
-        <span class="muted" style="font-size:11px;margin-left:auto;">月間総出店: <strong style="color:#085041;">${totalLocDays}日</strong></span>
-      </div>
-      <div id="loc-table-wrap" style="overflow-x:auto;max-height:340px;overflow-y:auto;">
-        <table class="sg">
-          <thead><tr>
-            <th class="col-name" style="position:sticky;top:0;left:0;z-index:3;background:#f5f5f0;text-align:left;min-width:${nameColW};">場所</th>
-            ${hdrs}
-            <th class="col-total" style="position:sticky;top:0;right:0;background:#f5f5f0;z-index:3;">計</th>
-          </tr></thead>
-          <tbody>${locRows}</tbody>
-        </table>
-      </div>
-    </div>
-    <div class="card" style="padding:12px;margin-top:8px;">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-        <div class="sec-title" style="margin-bottom:0;">スタッフ別出勤表</div>
-        <span class="muted" style="font-size:11px;">クリックで変更 / Shift+クリックで範囲一括設定</span>
-        <span class="muted" style="font-size:11px;margin-left:auto;">全スタッフ合計: <strong style="color:#534AB7;">${staffGrandTotal}日</strong></span>
-      </div>
-      <div id="staff-table-wrap" style="overflow-x:auto;max-height:400px;overflow-y:auto;">
-        <table class="sg">
-          <thead><tr>
-            <th class="col-name" style="position:sticky;top:0;left:0;z-index:3;background:#f5f5f0;text-align:left;min-width:${nameColW};">名前</th>
-            ${hdrs}
-            <th class="col-total" style="position:sticky;top:0;right:0;background:#f5f5f0;z-index:3;">計</th>
-          </tr></thead>
-          <tbody>${staffRows}${staffTotalRow}</tbody>
-        </table>
-      </div>
-    </div>
-    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
       <button class="btn btn-primary" onclick="generate()">再生成</button>
       ${backupSchedule?`<button class="btn btn-amber" onclick="restoreBackup()">再生成前に戻す</button>`:''}
       <button class="btn btn-green" onclick="downloadViewer()">閲覧用HTMLを出力</button>
@@ -1804,7 +1884,7 @@ function renderResult(keepScroll){
       <button class="btn" style="background:#1565C0;color:white;border-color:#1565C0;" onclick="shareShiftToCoffeeApp()">☕ コーヒー管理に共有</button>
       <button class="btn" onclick="document.getElementById('shift-upload-area').style.display=document.getElementById('shift-upload-area').style.display==='none'?'block':'none'">CSVアップロード</button>
     </div>
-    <div id="shift-upload-area" style="display:none;margin-top:12px;">
+    <div id="shift-upload-area" style="display:none;margin-bottom:12px;">
       <div class="card" style="padding:12px;">
         <div class="sec-title" style="margin-bottom:8px;">シフト表CSVをアップロード</div>
         <div class="code-block" style="font-size:11px;margin-bottom:10px;">場所,1日(火),2日(水),…
@@ -1822,7 +1902,53 @@ function renderResult(keepScroll){
           <div style="font-size:13px;color:#666;">クリックまたはCSVをドロップ</div>
         </div>
       </div>
-    </div>`;
+    </div>
+    ${warnings.length?`<div class="warn-box">未割当：${warnings.slice(0,5).join('　')}${warnings.length>5?` 他${warnings.length-5}件`:''}</div>`:''}
+    ${editMsgHtml}
+    <div class="card" style="padding:12px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+        <div class="sec-title" style="margin-bottom:0;">場所別割当表</div>
+        <span class="muted" style="font-size:11px;">クリックで変更 / Shift+クリックで範囲一括設定</span>
+        <div style="display:flex;gap:4px;margin-left:8px;">
+          <button class="btn btn-sm btn-outline" style="font-size:11px;padding:3px 8px;" onclick="sortLocs('name')" title="名前順に並べ替え">並替:名前順</button>
+          <button class="btn btn-sm btn-outline" style="font-size:11px;padding:3px 8px;" onclick="sortLocs('total')" title="出店日数の多い順に並べ替え">並替:出店数順</button>
+        </div>
+        <span class="muted" style="font-size:11px;margin-left:auto;">月間総出店: <strong style="color:#085041;">${totalLocDays}日</strong></span>
+      </div>
+      <div id="loc-table-wrap" style="overflow-x:auto;max-height:340px;overflow-y:auto;">
+        <table class="sg">
+          <thead><tr>
+            <th class="col-name" style="position:sticky;top:0;left:0;z-index:3;background:#f5f5f0;text-align:left;min-width:${nameColW};">場所</th>
+            ${hdrs}
+            <th class="col-total" style="position:sticky;top:0;right:0;background:#f5f5f0;z-index:3;">計</th>
+          </tr></thead>
+          <tbody>${locRows}</tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card" style="padding:12px;margin-top:8px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+        <div class="sec-title" style="margin-bottom:0;">スタッフ別出勤表</div>
+        <span class="muted" style="font-size:11px;">クリックで変更 / Shift+クリックで範囲一括設定</span>
+        <div style="display:flex;gap:4px;margin-left:8px;">
+          <button class="btn btn-sm btn-outline" style="font-size:11px;padding:3px 8px;" onclick="sortStaff('name')" title="名前順に並べ替え">並替:名前順</button>
+          <button class="btn btn-sm btn-outline" style="font-size:11px;padding:3px 8px;" onclick="sortStaff('car')" title="号車順に並べ替え">並替:号車順</button>
+          <button class="btn btn-sm btn-outline" style="font-size:11px;padding:3px 8px;" onclick="sortStaff('total')" title="出勤日数の多い順に並べ替え">並替:出勤数順</button>
+        </div>
+        <span class="muted" style="font-size:11px;margin-left:auto;">全スタッフ合計: <strong style="color:#534AB7;">${staffGrandTotal}日</strong></span>
+      </div>
+      <div id="staff-table-wrap" style="overflow-x:auto;max-height:400px;overflow-y:auto;">
+        <table class="sg">
+          <thead><tr>
+            <th class="col-name" style="position:sticky;top:0;left:0;z-index:3;background:#f5f5f0;text-align:left;min-width:${nameColW};">名前</th>
+            ${hdrs}
+            <th class="col-total" style="position:sticky;top:0;right:0;background:#f5f5f0;z-index:3;">計</th>
+          </tr></thead>
+          <tbody>${staffRows}${staffTotalRow}</tbody>
+        </table>
+      </div>
+    </div>
+    ${carTableHtml}`;
 
   // ⑧ スクロール位置を復元 & スクロール連動を設定
   if(pos){
@@ -2542,6 +2668,36 @@ function printShift(){
   const totalLocDays=locs.reduce((sum,l)=>sum+(locDatesPrint[l.id]||[]).filter(d=>{const sid=(assignments[l.id]||{})[d];return sid&&sid>0;}).length,0);
   const staffGrand=staff.reduce((sum,s)=>sum+Object.values(schedule[s.id]||{}).filter(v=>v).length,0);
 
+  // 号車別場所割当表（研修中除外）
+  const printUsedCars=new Set();
+  staff.forEach(s=>{
+    for(let d=1;d<=days;d++){
+      if(getRoleOnDay(s,d)==='trainee')continue;
+      const car=(carDailyOverride[s.id]||{})[d]!==undefined?(carDailyOverride[s.id]||{})[d]:(s.carNo||null);
+      if(car&&schedule[s.id]?.[d])printUsedCars.add(car);
+    }
+  });
+  const printCarList=Array.from(printUsedCars).sort((a,b)=>a-b);
+  const carTableRows=printCarList.map(carNo=>{
+    const cells=Array.from({length:days},(_,i)=>{
+      const d=i+1;
+      const s=staff.find(st=>{
+        if(getRoleOnDay(st,d)==='trainee')return false;
+        const car=(carDailyOverride[st.id]||{})[d]!==undefined?(carDailyOverride[st.id]||{})[d]:(st.carNo||null);
+        return car===carNo&&schedule[st.id]?.[d];
+      });
+      if(!s)return`<td class="dc off">―</td>`;
+      const v=schedule[s.id][d];
+      const abbr=locAbbrByName(v);
+      return`<td class="dc work">${abbr}</td>`;
+    }).join('');
+    return`<tr><td class="nc loc-name">${circledNum(carNo)}号車</td>${cells}<td class="tc"></td></tr>`;
+  }).join('');
+  const carSectionHtml=printCarList.length>0?`
+    <tr><td colspan="${days+2}" class="sec-hdr">号車別場所割当表</td></tr>
+    <tr class="thr"><th class="nc" style="text-align:left;">号車</th>${hdrs}<th class="tc"></th></tr>
+    ${carTableRows}`:'';
+
   const html=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"/>
 <title>${y}年${m}月 シフト表</title>
 <style>
@@ -2581,6 +2737,7 @@ th{background:#f5f5f0;font-weight:500;}
     <tr><td colspan="${days+2}" class="sec-hdr">スタッフ別出勤表</td></tr>
     <tr class="thr"><th class="nc" style="text-align:left;">名前</th>${hdrs}<th class="tc">計</th></tr>
     ${staffTableRows}
+    ${carSectionHtml}
   </tbody>
 </table>
 </body></html>`;
@@ -2642,28 +2799,12 @@ function shareShiftToCoffeeApp(){
 
   // FirestoreのshiftSchedulesコレクションに保存
   if(window._shareShiftToFirestore){
-    // ボタンをローディング状態に
-    const btn = document.querySelector('button[onclick="shareShiftToCoffeeApp()"]');
-    const origText = btn ? btn.textContent : '';
-    if(btn){ btn.textContent = '⏳ 共有中...'; btn.disabled = true; }
-
-    window._shareShiftToFirestore(
-      {
-        month:`${y}-${String(m).padStart(2,'0')}`,
-        schedules:scheduleData,
-        updatedAt:new Date().toISOString()
-      },
-      // 成功コールバック
-      (count) => {
-        if(btn){ btn.textContent = origText; btn.disabled = false; }
-        showEditMsg(`✅ ${count}件のスケジュールをコーヒー管理アプリに共有しました`, 'success');
-      },
-      // エラーコールバック
-      (errMsg) => {
-        if(btn){ btn.textContent = origText; btn.disabled = false; }
-        showEditMsg(`❌ 共有に失敗しました: ${errMsg}`, 'error');
-      }
-    );
+    window._shareShiftToFirestore({
+      month:`${y}-${String(m).padStart(2,'0')}`,
+      schedules:scheduleData,
+      updatedAt:new Date().toISOString()
+    });
+    showEditMsg(`☕ ${scheduleData.length}件のスケジュールをコーヒー管理アプリに共有しました`);
   }else{
     alert('Firebase未接続のため共有できません。\nWebアプリ版でご利用ください。');
   }
@@ -3077,29 +3218,10 @@ function setCarOverride(sid,day,carNo){
   });
 }
 
-function showEditMsg(msg, type){
+function showEditMsg(msg){
   setTimeout(()=>{
     const el=document.getElementById('edit-msg');
-    if(el){
-      el.textContent=msg;
-      el.style.display='block';
-      // 色分け
-      if(type==='success'){
-        el.style.background='#e8f5e9';
-        el.style.color='#2e7d32';
-        el.style.border='1px solid #a5d6a7';
-      } else if(type==='error'){
-        el.style.background='#fdecea';
-        el.style.color='#c62828';
-        el.style.border='1px solid #ef9a9a';
-      } else {
-        // デフォルト（元のスタイルに戻す）
-        el.style.background='';
-        el.style.color='';
-        el.style.border='';
-      }
-      setTimeout(()=>{el.style.display='none';},4000);
-    }
+    if(el){el.textContent=msg;el.style.display='block';setTimeout(()=>{el.style.display='none';},3000);}
   },10);
 }
 
@@ -3236,33 +3358,41 @@ function dlShiftCSV(){
 function downloadViewer(){
   if(!lastSchedule)return alert('先にシフトを生成してください');
   const{days,y,m}=lastMonthInfo;const ml=`${y}年${m}月`;
-  const sj=JSON.stringify(staff.map(s=>({id:s.id,name:s.name,abbr:staffAbbr(s),color:s.color||'#4CAF50',carNo:s.carNo||null})));
+  const sj=JSON.stringify(staff.map(s=>({id:s.id,name:s.name,abbr:staffAbbr(s),color:s.color||'#4CAF50',carNo:s.carNo||null,role:s.role||'full',roleHistory:s.roleHistory||{}})));
   const lj=JSON.stringify(locs.map(l=>({id:l.id,name:l.name,abbr:locAbbr(l),detail:l.detail||''})));
   const coj=JSON.stringify(carDailyOverride);
   const secj=JSON.stringify(locSections||{});
   const html=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>${ml} シフト表</title>
 <style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif;background:#f5f5f0;color:#1a1a1a;font-size:14px;}header{background:#534AB7;color:white;padding:16px 20px;}header h1{font-size:18px;font-weight:500;margin-bottom:10px;}.fr{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}.fr label{font-size:13px;opacity:.85;}select.f{padding:5px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.4);font-size:13px;background:white;color:#1a1a1a;cursor:pointer;}.htabs{display:flex;gap:0;margin-bottom:16px;border-radius:8px;overflow:hidden;border:0.5px solid #534AB7;}.htab{padding:10px 20px;font-size:13px;font-weight:500;cursor:pointer;color:#534AB7;background:white;border:none;flex:1;text-align:center;}.htab.active{background:#534AB7;color:white;}.main{padding:16px;max-width:1000px;margin:0 auto;}.card{background:white;border-radius:12px;padding:1rem;margin-bottom:1rem;border:.5px solid #e5e5e0;}.ct{font-size:11px;font-weight:500;color:#999;letter-spacing:.05em;text-transform:uppercase;margin-bottom:10px;}.tw{overflow-x:auto;}table{border-collapse:collapse;min-width:100%;font-size:12px;}th,td{padding:5px 6px;border:.5px solid #e5e5e0;text-align:center;white-space:nowrap;}th{background:#f5f5f0;font-weight:500;color:#666;}td:first-child{text-align:left;}.cw{background:#E1F5EE;color:#085041;font-weight:500;}.co{color:#ccc;}.ch{background:#f5f5f0;color:#bbb;}.cu{background:#FAEEDA;color:#633806;}.dh{color:#c0392b;}.dc{background:white;border-radius:10px;padding:12px;margin-bottom:10px;border:.5px solid #e5e5e0;}.dh2{font-size:15px;font-weight:500;margin-bottom:8px;padding-bottom:6px;border-bottom:.5px solid #e5e5e0;}.ar{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:.5px solid #f0f0ea;}.ar:last-child{border-bottom:none;}.lp{font-size:11px;padding:2px 8px;border-radius:99px;background:#EEEDFE;color:#3C3489;font-weight:500;min-width:80px;text-align:center;}.sn2{font-size:13px;font-weight:500;}.nr{text-align:center;padding:2rem;color:#999;font-size:13px;}.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}.cal-dow{text-align:center;font-size:11px;font-weight:500;padding:4px 0;}.cal-day{min-height:80px;border:0.5px solid #e5e5e0;border-radius:6px;padding:4px;background:white;}.cal-day.hol{background:#fafafa;}.cal-dn{font-size:12px;font-weight:500;margin-bottom:3px;}.cal-entry{font-size:10px;padding:2px 5px;border-radius:3px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}.legend{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}.leg{display:flex;align-items:center;gap:4px;font-size:11px;}.leg-dot{width:12px;height:12px;border-radius:3px;}.sticky-col{position:sticky;left:0;z-index:1;background:white;}.sticky-col-loc{position:sticky;left:0;z-index:1;background:#EEEDFE;}footer{text-align:center;padding:16px;font-size:11px;color:#aaa;}</style></head><body>
 <header><h1>${ml} シフト表</h1>
-<div class="fr" id="shift-ctrl"><label>表示：</label><select class="f" id="vm" onchange="af()"><option value="table">表形式</option><option value="list">日別リスト</option></select><label>スタッフ：</label><select class="f" id="sf" onchange="af()"><option value="all">全員</option></select><label>場所：</label><select class="f" id="lf" onchange="af()"><option value="all">全場所</option></select></div>
+<div class="fr" id="shift-ctrl"><label>表示：</label><select class="f" id="vm" onchange="af()"><option value="table">表形式</option><option value="list">日別リスト</option></select><label>スタッフ：</label><select class="f" id="sf" onchange="af()"><option value="all">全員</option></select><label>場所：</label><select class="f" id="lf" onchange="af()"><option value="all">全場所</option></select><button class="f" style="cursor:pointer;background:#1D9E75;color:white;border:none;font-weight:500;" onclick="printViewerPDF()">🖨 印刷/PDF保存</button></div>
 </header>
 <div class="main">
-<div class="htabs"><button class="htab active" onclick="showTab('shift')">シフト表</button><button class="htab" onclick="showTab('cal')">月間カレンダー</button></div>
+<div class="htabs"><button class="htab active" onclick="showTab('shift')">シフト表</button><button class="htab" onclick="showTab('car')">号車別</button><button class="htab" onclick="showTab('cal')">月間カレンダー</button></div>
 <div id="tab-shift"><div id="tv"><div class="card"><div class="ct">場所別割当表</div><div class="tw"><table id="lt"></table></div></div><div class="card"><div class="ct">スタッフ別出勤表</div><div class="tw"><table id="st"></table></div></div></div><div id="lv" style="display:none;"><div id="lc"></div></div></div>
+<div id="tab-car" style="display:none;"><div class="card"><div class="ct">号車別場所割当表</div><div class="tw"><table id="ct"></table></div></div></div>
 <div id="tab-cal" style="display:none;"><div class="card"><div id="legend-area" class="legend"></div><div class="cal-grid" id="cal-grid"></div></div></div>
 </div>
 <footer>閲覧専用シフト表 ${ml}</footer>
 <script>
 const staff=${sj},locs=${lj},ld=${JSON.stringify(lastLocDates)},as=${JSON.stringify(lastAssignments)},sc=${JSON.stringify(lastSchedule)},co=${coj},sec=${secj},days=${days},y=${y},m=${m};
 const circledNum=n=>['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩','⑪','⑫'][n-1]||String(n);
+const getRoleOnDayV=(s,d)=>{
+  if(!s||!s.roleHistory||Object.keys(s.roleHistory).length===0)return s?.role||'full';
+  const keys=Object.keys(s.roleHistory).map(Number).filter(k=>k<=d).sort((a,b)=>b-a);
+  return keys.length>0?s.roleHistory[keys[0]]:s.role;
+};
 const DOW=['日','月','火','水','木','金','土'];
 const sf=document.getElementById('sf'),lf=document.getElementById('lf');
 staff.forEach(s=>{const o=document.createElement('option');o.value=s.id;o.textContent=s.name;sf.appendChild(o);});
 locs.forEach(l=>{const o=document.createElement('option');o.value=l.id;o.textContent=l.name;lf.appendChild(o);});
 function showTab(t){
   document.getElementById('tab-shift').style.display=t==='shift'?'block':'none';
+  document.getElementById('tab-car').style.display=t==='car'?'block':'none';
   document.getElementById('tab-cal').style.display=t==='cal'?'block':'none';
   document.getElementById('shift-ctrl').style.display=t==='shift'?'flex':'none';
-  document.querySelectorAll('.htab').forEach((b,i)=>b.classList.toggle('active',(t==='shift'&&i===0)||(t==='cal'&&i===1)));
+  document.querySelectorAll('.htab').forEach((b,i)=>b.classList.toggle('active',(t==='shift'&&i===0)||(t==='car'&&i===1)||(t==='cal'&&i===2)));
+  if(t==='car')renderCarTable();
   if(t==='cal')renderCal();
 }
 function af(){const v=document.getElementById('vm').value,sid=sf.value,lid=lf.value;document.getElementById('tv').style.display=v==='table'?'block':'none';document.getElementById('lv').style.display=v==='list'?'block':'none';v==='table'?rt(sid,lid):rl(sid,lid);}
@@ -3280,6 +3410,47 @@ function cellLoc(d,l){
   const tip=(s?s.abbr:'?')+(section?' ['+section+']':'');
   const onclk=section?'onclick="showSecPopup(event,this)" data-sec="'+section+'" data-loc="'+l.name+'"':'';
   return'<td class="cw" style="position:relative;cursor:'+(section?'pointer':'default')+';" '+onclk+' title="'+tip+'">'+carLabel+(s?s.abbr:'?')+dot+'</td>';
+}
+function renderCarTable(){
+  // 使用号車を収集（研修中除外）
+  const usedCars=new Set();
+  staff.forEach(s=>{
+    for(let d=1;d<=days;d++){
+      if(getRoleOnDayV(s,d)==='trainee')continue;
+      const car=(co[s.id]||{})[d]!==undefined?(co[s.id]||{})[d]:(s.carNo||null);
+      const v=(sc[s.id]||{})[d];
+      if(car&&v)usedCars.add(car);
+    }
+  });
+  const carList=Array.from(usedCars).sort((a,b)=>a-b);
+  if(carList.length===0){
+    document.getElementById('ct').innerHTML='<tr><td class="nr">号車データがありません</td></tr>';
+    return;
+  }
+  let html='<thead><tr><th style="text-align:center;min-width:60px;position:sticky;top:0;left:0;z-index:3;background:#f5f5f0;">号車</th>'+
+    Array.from({length:days},(_,i)=>{const d=i+1,dw=DOW[new Date(y,m-1,d).getDay()];return'<th style="position:sticky;top:0;z-index:2;background:#f5f5f0;" class="'+(dw==='日'||dw==='土'?'dh':'')+'">'+d+'<br><span style="font-size:9px;">'+dw+'</span></th>';}).join('')+
+    '</tr></thead><tbody>';
+  carList.forEach(carNo=>{
+    html+='<tr><td class="sticky-col" style="text-align:center;font-weight:600;min-width:60px;">'+circledNum(carNo)+'号車</td>';
+    for(let d=1;d<=days;d++){
+      const s=staff.find(st=>{
+        if(getRoleOnDayV(st,d)==='trainee')return false;
+        const car=(co[st.id]||{})[d]!==undefined?(co[st.id]||{})[d]:(st.carNo||null);
+        return car===carNo&&(sc[st.id]||{})[d];
+      });
+      if(!s){html+='<td class="co">―</td>';continue;}
+      const v=(sc[s.id]||{})[d];
+      const l=locs.find(x=>x.name===v);
+      const abbr=l?l.abbr:v.slice(0,3);
+      const section=l?(sec[l.id]||{})[d]||'':'';
+      const dot=section?'<span style="position:absolute;top:1px;right:1px;width:5px;height:5px;border-radius:50%;background:#F59E0B;pointer-events:none;"></span>':'';
+      const onclk=section?'onclick="showSecPopup(event,this)" data-sec="'+section+'" data-loc="'+v+'"':'';
+      html+='<td class="cw" style="position:relative;cursor:'+(section?'pointer':'default')+';" '+onclk+' title="'+v+(section?' ['+section+']':'')+'：'+s.name+'">'+abbr+dot+'</td>';
+    }
+    html+='</tr>';
+  });
+  html+='</tbody>';
+  document.getElementById('ct').innerHTML=html;
 }
 function rt(sid,lid){
   const fl=lid==='all'?locs:locs.filter(l=>String(l.id)===lid);
@@ -3369,6 +3540,130 @@ function showSecPopup(e,td){
   setTimeout(()=>{toast.style.opacity='0';setTimeout(()=>toast.remove(),300);},2200);
 }
 document.addEventListener('click',()=>{const t=document.getElementById('sec-toast');if(t)t.remove();});
+function printViewerPDF(){
+  const locDatesP={};
+  locs.forEach(l=>{locDatesP[l.id]=ld[l.id]||[];});
+  const dupCarP={};
+  for(let d=1;d<=days;d++){
+    const cc={};
+    staff.forEach(s=>{
+      const car=(co[s.id]||{})[d]!==undefined?(co[s.id]||{})[d]:(s.carNo||null);
+      if(!car||!sc[s.id]?.[d])return;
+      cc[car]=(cc[car]||0)+1;
+    });
+    dupCarP[d]=new Set(Object.entries(cc).filter(([,n])=>n>1).map(([c])=>Number(c)));
+  }
+  const maxStLen=Math.max(...staff.map(s=>s.name.length),2);
+  const maxLocLen=Math.max(...locs.map(l=>l.name.length),2);
+  const nameW=Math.max(60,Math.max(maxStLen,maxLocLen)*7+8);
+  const dayW=Array.from({length:days},(_,i)=>{
+    const d=i+1;let mx=22;
+    staff.forEach(s=>{
+      const v=sc[s.id]?.[d];if(!v)return;
+      const car=(co[s.id]||{})[d]!==undefined?(co[s.id]||{})[d]:s.carNo;
+      const l=locs.find(x=>x.name===v);
+      const abbr=l?l.abbr:v.slice(0,3);
+      const len=(car?1:0)+abbr.length;
+      if(len*6+4>mx)mx=len*6+4;
+    });
+    return Math.min(mx,50);
+  });
+  const hdrsP=Array.from({length:days},(_,i)=>{
+    const d=i+1,dw=DOW[new Date(y,m-1,d).getDay()];
+    const isH=dw==='日'||dw==='土';
+    return'<th class="dc" style="width:'+dayW[i]+'px;font-size:7px;padding:1px;'+(isH?'color:#c0392b;':'')+'">'+d+'<br>'+dw+'</th>';
+  }).join('');
+  const locTableRows=locs.map(l=>{
+    const total=(locDatesP[l.id]||[]).filter(d=>{const sid=(as[l.id]||{})[d];return sid&&sid>0;}).length;
+    const cells=Array.from({length:days},(_,i)=>{
+      const d=i+1;
+      if(!(locDatesP[l.id]||[]).includes(d))return'<td class="dc hol">―</td>';
+      const sid=(as[l.id]||{})[d];
+      if(sid===-1||!sid)return'<td class="dc unas">'+(sid===-1?'―':'未')+'</td>';
+      const s=staff.find(x=>x.id===sid);
+      const car=(co[sid]||{})[d]!==undefined?(co[sid]||{})[d]:s?.carNo;
+      const pDup=car&&dupCarP[d]?.has(car);
+      const carLabel=car?(pDup?'<span style="color:#c0392b;font-weight:bold">'+circledNum(car)+'</span>':circledNum(car)):'';
+      const mainLabel=s?s.abbr:'?';
+      return'<td class="dc work">'+carLabel+mainLabel+'</td>';
+    }).join('');
+    return'<tr><td class="nc loc-name">'+l.name+'</td>'+cells+'<td class="tc">'+total+'</td></tr>';
+  }).join('');
+  const staffTableRows=staff.map(s=>{
+    const sched=sc[s.id]||{};
+    const cnt=Object.values(sched).filter(v=>v).length;
+    const cells=Array.from({length:days},(_,i)=>{
+      const d=i+1,v=sched[d];
+      if(!v)return'<td class="dc off">―</td>';
+      const car=(co[s.id]||{})[d]!==undefined?(co[s.id]||{})[d]:s.carNo;
+      const pDupS=car&&dupCarP[d]?.has(car);
+      const carLabel=car?(pDupS?'<span style="color:#c0392b;font-weight:bold">'+circledNum(car)+'</span>':circledNum(car)):'';
+      const l=locs.find(x=>x.name===v);
+      const abbr=l?l.abbr:v.slice(0,3);
+      const isT=getRoleOnDayV(s,d)==='trainee';
+      return'<td class="dc work">'+(isT?'🔰':'')+carLabel+abbr+'</td>';
+    }).join('');
+    return'<tr><td class="nc">'+s.name+'</td>'+cells+'<td class="tc">'+cnt+'</td></tr>';
+  }).join('');
+  const totalLocDays=locs.reduce((sum,l)=>sum+(locDatesP[l.id]||[]).filter(d=>{const sid=(as[l.id]||{})[d];return sid&&sid>0;}).length,0);
+  const staffGrand=staff.reduce((sum,s)=>sum+Object.values(sc[s.id]||{}).filter(v=>v).length,0);
+  // 号車別
+  const usedCarsP=new Set();
+  staff.forEach(s=>{
+    for(let d=1;d<=days;d++){
+      if(getRoleOnDayV(s,d)==='trainee')continue;
+      const car=(co[s.id]||{})[d]!==undefined?(co[s.id]||{})[d]:(s.carNo||null);
+      if(car&&sc[s.id]?.[d])usedCarsP.add(car);
+    }
+  });
+  const carListP=Array.from(usedCarsP).sort((a,b)=>a-b);
+  const carTableRows=carListP.map(carNo=>{
+    const cells=Array.from({length:days},(_,i)=>{
+      const d=i+1;
+      const s=staff.find(st=>{
+        if(getRoleOnDayV(st,d)==='trainee')return false;
+        const car=(co[st.id]||{})[d]!==undefined?(co[st.id]||{})[d]:(st.carNo||null);
+        return car===carNo&&sc[st.id]?.[d];
+      });
+      if(!s)return'<td class="dc off">―</td>';
+      const v=sc[s.id][d];
+      const l=locs.find(x=>x.name===v);
+      const abbr=l?l.abbr:v.slice(0,3);
+      return'<td class="dc work">'+abbr+'</td>';
+    }).join('');
+    return'<tr><td class="nc loc-name">'+circledNum(carNo)+'号車</td>'+cells+'<td class="tc"></td></tr>';
+  }).join('');
+  const carSectionHtml=carListP.length>0?(
+    '<tr><td colspan="'+(days+2)+'" class="sec-hdr">号車別場所割当表</td></tr>'+
+    '<tr class="thr"><th class="nc" style="text-align:left;">号車</th>'+hdrsP+'<th class="tc"></th></tr>'+
+    carTableRows
+  ):'';
+  const printHtml='<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"/>'+
+    '<title>'+y+'年'+m+'月 シフト表</title>'+
+    '<style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:"Hiragino Sans",YuGothic,sans-serif;font-size:8px;padding:8mm;}'+
+    'h2{font-size:12px;margin-bottom:4px;}table{border-collapse:collapse;table-layout:fixed;margin-bottom:4px;}'+
+    'th,td{border:0.5px solid #ccc;padding:1px 2px;text-align:center;vertical-align:middle;overflow:hidden;white-space:nowrap;}'+
+    'th{background:#f5f5f0;font-weight:500;}.nc{text-align:left;width:'+nameW+'px;min-width:'+nameW+'px;font-size:8px;white-space:nowrap;padding:1px 3px;}'+
+    '.dc{font-size:7px;}.tc{width:18px;font-weight:bold;}.hol{background:#f5f5f0;color:#ccc;}.unas{background:#FAEEDA;color:#633806;}'+
+    '.work{background:#E1F5EE;color:#085041;}.off{color:#ccc;}.loc-name{background:#EEEDFE;color:#3C3489;font-weight:bold;}'+
+    '.summary{font-size:8px;color:#555;margin-bottom:6px;}.sec-hdr{background:#e8e8e8;font-weight:bold;font-size:9px;text-align:left;padding:3px 4px;color:#333;}'+
+    '@media print{@page{size:A4 landscape;margin:6mm;}body{padding:0;}-webkit-print-color-adjust:exact;print-color-adjust:exact;}'+
+    '</style></head><body>'+
+    '<h2>'+y+'年'+m+'月 シフト表</h2>'+
+    '<div class="summary">月間総出店: '+totalLocDays+'日　スタッフ総出勤: '+staffGrand+'日　場所数: '+locs.length+'　スタッフ数: '+staff.length+'名</div>'+
+    '<table><colgroup><col style="width:'+nameW+'px">'+Array.from({length:days},(_,i)=>'<col style="width:'+dayW[i]+'px">').join('')+'<col style="width:18px"></colgroup>'+
+    '<tbody><tr><td colspan="'+(days+2)+'" class="sec-hdr">場所別割当表</td></tr>'+
+    '<tr class="thr"><th class="nc" style="text-align:left;">場所</th>'+hdrsP+'<th class="tc">計</th></tr>'+
+    locTableRows+
+    '<tr><td colspan="'+(days+2)+'" class="sec-hdr">スタッフ別出勤表</td></tr>'+
+    '<tr class="thr"><th class="nc" style="text-align:left;">名前</th>'+hdrsP+'<th class="tc">計</th></tr>'+
+    staffTableRows+carSectionHtml+
+    '</tbody></table></body></html>';
+  const w=window.open('','_blank');
+  w.document.write(printHtml);
+  w.document.close();
+  w.onload=()=>{w.print();};
+}
 af();
 <\/script></body></html>`;
   const b=new Blob([html],{type:'text/html;charset=utf-8'});
@@ -3992,20 +4287,16 @@ window._saveToFirestore = async (data) => {
   }, 800);
 };
 
-window._shareShiftToFirestore = async (shiftData, onSuccess, onError) => {
-  if(!currentUser) {
-    if(onError) onError('未ログイン');
-    return;
-  }
+window._shareShiftToFirestore = async (shiftData) => {
+  if(!currentUser) return;
   try {
     const ref = doc(db, 'shift_schedules', currentUser.uid, 'data', shiftData.month);
     const cleanData = JSON.parse(JSON.stringify(shiftData, (key, val) => val === undefined ? null : val));
     await setDoc(ref, cleanData);
     console.log('シフトデータ共有完了:', shiftData.month, shiftData.schedules.length, '件');
-    if(onSuccess) onSuccess(shiftData.schedules.length);
   } catch(e) {
     console.error('シフト共有エラー:', e);
-    if(onError) onError(e.message);
+    alert('共有に失敗しました: ' + e.message);
   }
 };
 
