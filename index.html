@@ -1826,22 +1826,6 @@ function renderResult(keepScroll){
       <td class="col-name" style="position:sticky;left:0;z-index:1;background:white;white-space:nowrap;min-width:${carNameW};text-align:center;font-weight:600;">${circledNum(carNo)}号車</td>
       ${cells}</tr>`;
   }).join('');
-  const carTableHtml=carNumList.length>0?`
-    <div class="card" style="padding:12px;margin-top:8px;">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-        <div class="sec-title" style="margin-bottom:0;">号車別場所割当表</div>
-        <span class="muted" style="font-size:11px;">号車ごとの出店場所一覧（研修中スタッフは除く）</span>
-      </div>
-      <div id="car-table-wrap" style="overflow-x:auto;max-height:300px;overflow-y:auto;">
-        <table class="sg">
-          <thead><tr>
-            <th class="col-name" style="position:sticky;top:0;left:0;z-index:3;background:#f5f5f0;text-align:center;min-width:${carNameW};">号車</th>
-            ${hdrs}
-          </tr></thead>
-          <tbody>${carRows}</tbody>
-        </table>
-      </div>
-    </div>`:'';
 
   const prevEditMsg=document.getElementById('edit-msg');
   const editMsgHtml=prevEditMsg&&prevEditMsg.style.display!=='none'
@@ -1866,6 +1850,24 @@ function renderResult(keepScroll){
     const minW=Math.max(28,dayMaxLen[i]*11+10)+'px';
     return`<th style="position:sticky;top:0;background:#f5f5f0;z-index:2;min-width:${minW};${dw==='日'||dw==='土'?'color:#c0392b;':''}">${d}<br><span style="font-size:9px;">${dw}</span></th>`;
   }).join('');
+
+  // hdrs定義後にcarTableHtmlを生成（hdrs参照のため）
+  const carTableHtml=carNumList.length>0?`
+    <div class="card" style="padding:12px;margin-top:8px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <div class="sec-title" style="margin-bottom:0;">号車別場所割当表</div>
+        <span class="muted" style="font-size:11px;">号車ごとの出店場所一覧（研修中スタッフは除く）</span>
+      </div>
+      <div id="car-table-wrap" style="overflow-x:auto;max-height:300px;overflow-y:auto;">
+        <table class="sg">
+          <thead><tr>
+            <th class="col-name" style="position:sticky;top:0;left:0;z-index:3;background:#f5f5f0;text-align:center;min-width:${carNameW};">号車</th>
+            ${hdrs}
+          </tr></thead>
+          <tbody>${carRows}</tbody>
+        </table>
+      </div>
+    </div>`:'';
 
   document.getElementById('result-area').innerHTML=`
     <div class="metrics">
