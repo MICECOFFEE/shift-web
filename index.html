@@ -911,7 +911,8 @@ function exportJSON(){
     staff,locs,priorities,wishes,candidates,nextSid,nextLid,
     tmonth:document.getElementById('tmonth').value,
     lastSchedule,lastAssignments,lastLocDates,lastMonthInfo,
-    backupSchedule,backupAssignments,backupLocDates,backupMonthInfo
+    backupSchedule,backupAssignments,backupLocDates,backupMonthInfo,
+    carDailyOverride,traineeAssignments,locSections
   };
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
   const a=document.createElement('a');
@@ -1806,6 +1807,7 @@ function renderResult(keepScroll){
   const carNumList=Array.from(usedCars).sort((a,b)=>a-b);
   const carNameW='56px';
   const carRows=carNumList.map(carNo=>{
+    let carTotal=0;
     const cells=Array.from({length:days},(_,i)=>{
       const d=i+1;
       // この日・この号車を担当しているスタッフを探す（研修中は除外）
@@ -1815,6 +1817,7 @@ function renderResult(keepScroll){
         return car===carNo&&(schedule[st.id]||{})[d];
       });
       if(!s)return`<td class="c-off">―</td>`;
+      carTotal++;
       const v=(schedule[s.id]||{})[d];
       const abbr=locAbbrByName(v);
       const loc=locs.find(l=>l.name===v);
@@ -1824,7 +1827,7 @@ function renderResult(keepScroll){
     }).join('');
     return`<tr>
       <td class="col-name" style="position:sticky;left:0;z-index:1;background:white;white-space:nowrap;min-width:${carNameW};text-align:center;font-weight:600;">${circledNum(carNo)}号車</td>
-      ${cells}</tr>`;
+      ${cells}<td class="col-total" style="font-weight:500;position:sticky;right:0;background:white;">${carTotal}</td></tr>`;
   }).join('');
 
   const prevEditMsg=document.getElementById('edit-msg');
@@ -1863,6 +1866,7 @@ function renderResult(keepScroll){
           <thead><tr>
             <th class="col-name" style="position:sticky;top:0;left:0;z-index:3;background:#f5f5f0;text-align:center;min-width:${carNameW};">号車</th>
             ${hdrs}
+            <th class="col-total" style="position:sticky;top:0;right:0;background:#f5f5f0;z-index:3;">計</th>
           </tr></thead>
           <tbody>${carRows}</tbody>
         </table>
@@ -2681,6 +2685,7 @@ function printShift(){
   });
   const printCarList=Array.from(printUsedCars).sort((a,b)=>a-b);
   const carTableRows=printCarList.map(carNo=>{
+    let carTotal=0;
     const cells=Array.from({length:days},(_,i)=>{
       const d=i+1;
       const s=staff.find(st=>{
@@ -2689,15 +2694,16 @@ function printShift(){
         return car===carNo&&schedule[st.id]?.[d];
       });
       if(!s)return`<td class="dc off">―</td>`;
+      carTotal++;
       const v=schedule[s.id][d];
       const abbr=locAbbrByName(v);
       return`<td class="dc work">${abbr}</td>`;
     }).join('');
-    return`<tr><td class="nc loc-name">${circledNum(carNo)}号車</td>${cells}<td class="tc"></td></tr>`;
+    return`<tr><td class="nc loc-name">${circledNum(carNo)}号車</td>${cells}<td class="tc">${carTotal}</td></tr>`;
   }).join('');
   const carSectionHtml=printCarList.length>0?`
     <tr><td colspan="${days+2}" class="sec-hdr">号車別場所割当表</td></tr>
-    <tr class="thr"><th class="nc" style="text-align:left;">号車</th>${hdrs}<th class="tc"></th></tr>
+    <tr class="thr"><th class="nc" style="text-align:left;">号車</th>${hdrs}<th class="tc">計</th></tr>
     ${carTableRows}`:'';
 
   const html=`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"/>
@@ -3431,8 +3437,9 @@ function renderCarTable(){
   }
   let html='<thead><tr><th style="text-align:center;min-width:60px;position:sticky;top:0;left:0;z-index:3;background:#f5f5f0;">号車</th>'+
     Array.from({length:days},(_,i)=>{const d=i+1,dw=DOW[new Date(y,m-1,d).getDay()];return'<th style="position:sticky;top:0;z-index:2;background:#f5f5f0;" class="'+(dw==='日'||dw==='土'?'dh':'')+'">'+d+'<br><span style="font-size:9px;">'+dw+'</span></th>';}).join('')+
-    '</tr></thead><tbody>';
+    '<th style="position:sticky;top:0;right:0;background:#f5f5f0;z-index:3;">計</th></tr></thead><tbody>';
   carList.forEach(carNo=>{
+    let carTotal=0;
     html+='<tr><td class="sticky-col" style="text-align:center;font-weight:600;min-width:60px;">'+circledNum(carNo)+'号車</td>';
     for(let d=1;d<=days;d++){
       const s=staff.find(st=>{
@@ -3441,6 +3448,7 @@ function renderCarTable(){
         return car===carNo&&(sc[st.id]||{})[d];
       });
       if(!s){html+='<td class="co">―</td>';continue;}
+      carTotal++;
       const v=(sc[s.id]||{})[d];
       const l=locs.find(x=>x.name===v);
       const abbr=l?l.abbr:v.slice(0,3);
@@ -3449,7 +3457,7 @@ function renderCarTable(){
       const onclk=section?'onclick="showSecPopup(event,this)" data-sec="'+section+'" data-loc="'+v+'"':'';
       html+='<td class="cw" style="position:relative;cursor:'+(section?'pointer':'default')+';" '+onclk+' title="'+v+(section?' ['+section+']':'')+'：'+s.name+'">'+abbr+dot+'</td>';
     }
-    html+='</tr>';
+    html+='<td style="font-weight:500;">'+carTotal+'</td></tr>';
   });
   html+='</tbody>';
   document.getElementById('ct').innerHTML=html;
@@ -3620,6 +3628,7 @@ function printViewerPDF(){
   });
   const carListP=Array.from(usedCarsP).sort((a,b)=>a-b);
   const carTableRows=carListP.map(carNo=>{
+    let carTotal=0;
     const cells=Array.from({length:days},(_,i)=>{
       const d=i+1;
       const s=staff.find(st=>{
@@ -3628,16 +3637,17 @@ function printViewerPDF(){
         return car===carNo&&sc[st.id]?.[d];
       });
       if(!s)return'<td class="dc off">―</td>';
+      carTotal++;
       const v=sc[s.id][d];
       const l=locs.find(x=>x.name===v);
       const abbr=l?l.abbr:v.slice(0,3);
       return'<td class="dc work">'+abbr+'</td>';
     }).join('');
-    return'<tr><td class="nc loc-name">'+circledNum(carNo)+'号車</td>'+cells+'<td class="tc"></td></tr>';
+    return'<tr><td class="nc loc-name">'+circledNum(carNo)+'号車</td>'+cells+'<td class="tc">'+carTotal+'</td></tr>';
   }).join('');
   const carSectionHtml=carListP.length>0?(
     '<tr><td colspan="'+(days+2)+'" class="sec-hdr">号車別場所割当表</td></tr>'+
-    '<tr class="thr"><th class="nc" style="text-align:left;">号車</th>'+hdrsP+'<th class="tc"></th></tr>'+
+    '<tr class="thr"><th class="nc" style="text-align:left;">号車</th>'+hdrsP+'<th class="tc">計</th></tr>'+
     carTableRows
   ):'';
   const printHtml='<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"/>'+
