@@ -1887,6 +1887,7 @@ function renderResult(keepScroll){
       <button class="btn btn-green" onclick="downloadViewer()">閲覧用HTMLを出力</button>
       <button class="btn btn-outline" onclick="dlShiftCSV()">シフト表をCSV書き出し</button>
       <button class="btn btn-teal" onclick="printShift()">印刷</button>
+      <button class="btn" style="background:#0B8043;color:white;border-color:#0B8043;" onclick="downloadICS()">📅 Googleカレンダー用ICS出力</button>
       <button class="btn" style="background:#1565C0;color:white;border-color:#1565C0;" onclick="shareShiftToCoffeeApp()">☕ コーヒー管理に共有</button>
       <button class="btn" onclick="document.getElementById('shift-upload-area').style.display=document.getElementById('shift-upload-area').style.display==='none'?'block':'none'">CSVアップロード</button>
     </div>
@@ -2577,6 +2578,96 @@ function roundRect(ctx,x,y,w,h,r){
 }
 
 /* ===== 印刷 ===== */
+/* ===== Googleカレンダー用ICS出力 ===== */
+function downloadICS(){
+  if(!lastSchedule||!lastMonthInfo){alert('先にシフトを生成してください');return;}
+  const{days,y,m}=lastMonthInfo;
+  const schedule=lastSchedule||{};
+  const pad=n=>String(n).padStart(2,'0');
+
+  // ICSのUID生成用
+  const uid=()=>`${Date.now()}-${Math.random().toString(36).slice(2)}@micecoffee`;
+
+  // ICS日付フォーマット（終日イベント: YYYYMMDD）
+  const icsDate=(yr,mo,da)=>`${yr}${pad(mo)}${pad(da)}`;
+  // 翌日（終日イベントのDTENDは翌日）
+  const icsDateNext=(yr,mo,da)=>{
+    const dt=new Date(yr,mo-1,da+1);
+    return`${dt.getFullYear()}${pad(dt.getMonth()+1)}${pad(dt.getDate())}`;
+  };
+  // ICS文字列のエスケープ
+  const esc=s=>(s||'').replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,').replace(/\n/g,'\\n');
+  // 75バイト制限の折り返し
+  const fold=s=>{
+    const lines=[];
+    while(s.length>74){lines.push(s.slice(0,74));s=' '+s.slice(74);}
+    lines.push(s);
+    return lines.join('\r\n');
+  };
+
+  const events=[];
+  staff.forEach(s=>{
+    for(let d=1;d<=days;d++){
+      const locName=schedule[s.id]?.[d];
+      if(!locName)continue;
+      const isT=getRoleOnDay(s,d)==='trainee';
+      const car=(carDailyOverride[s.id]||{})[d]!==undefined
+        ?(carDailyOverride[s.id]||{})[d]
+        :(s.carNo||null);
+      const carLabel=(!car||isT)?'':circledNum(car);
+      // タイトル: 萩原⑥(神戸マルイ) or 🔰花子(神戸マルイ)
+      const title=isT
+        ?`🔰${s.name}(${locName})`
+        :`${s.name}${carLabel}(${locName})`;
+      // 区画があれば説明に追加
+      const loc=locs.find(l=>l.name===locName);
+      const sec=loc?(locSections[loc.id]||{})[d]||'':'';
+      const desc=[
+        `スタッフ: ${s.name}`,
+        `出店場所: ${locName}`,
+        sec?`区画: ${sec}`:'',
+        car&&!isT?`号車: ${carLabel}号車`:'',
+        isT?'区分: 研修中':''
+      ].filter(Boolean).join('\\n');
+
+      events.push([
+        'BEGIN:VEVENT',
+        fold(`UID:${uid()}`),
+        fold(`DTSTART;VALUE=DATE:${icsDate(y,m,d)}`),
+        fold(`DTEND;VALUE=DATE:${icsDateNext(y,m,d)}`),
+        fold(`SUMMARY:${esc(title)}`),
+        fold(`DESCRIPTION:${esc(desc)}`),
+        fold(`CATEGORIES:100g COFFEE シフト`),
+        `STATUS:CONFIRMED`,
+        `TRANSP:TRANSPARENT`,
+        'END:VEVENT'
+      ].join('\r\n'));
+    }
+  });
+
+  if(events.length===0){alert('出勤データがありません');return;}
+
+  const ics=[
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//MICECoffeeService//ShiftApp//JA',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    `X-WR-CALNAME:100g COFFEE ${y}年${m}月 シフト`,
+    'X-WR-TIMEZONE:Asia/Tokyo',
+    ...events,
+    'END:VCALENDAR'
+  ].join('\r\n');
+
+  const blob=new Blob([ics],{type:'text/calendar;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`shift_${y}${pad(m)}_calendar.ics`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showEditMsg(`ICSファイルを出力しました（${events.length}件のイベント）`);
+}
+
 function printShift(){
   if(!lastSchedule||!lastMonthInfo){alert('先にシフトを生成してください');return;}
   const{days,y,m,key}=lastMonthInfo;
