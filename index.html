@@ -2481,12 +2481,19 @@ function generateInstaImages(){
 
   // 画像2は少し遅らせて別々にダウンロード
   setTimeout(()=>{
-    // シフト表の実際の出店日を使用（候補日除外を反映）
-    const effectiveLocDates2={};
-    locs.forEach(l=>{effectiveLocDates2[l.id]=getEffectiveDates(l.id,key)||locDates[l.id]||[];});
-    const activeLocs=locs.filter(l=>effectiveLocDates2[l.id].some(d=>{
-      const sid=(assignments[l.id]||{})[d];return sid&&sid>0;
-    }));
+    // lastAssignmentsで実際に割り当てがある場所を使用（ポスターと同じ方式）
+    const activeLocs=locs.filter(l=>{
+      const asgn=assignments[l.id]||{};
+      // 1日でも割り当てがある場所を対象とする
+      for(let d=1;d<=days;d++){
+        const sid=asgn[d];
+        if(sid&&sid>0)return true;
+      }
+      // 割り当てなしでも候補日がある場合は含める
+      const eff=getEffectiveDates(l.id,key);
+      const ldl=eff.length?eff:(locDates[l.id]||[]);
+      return ldl.length>0;
+    });
 
     const COLS=2;
     const W2=1080;
