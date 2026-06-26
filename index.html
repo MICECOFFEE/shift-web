@@ -2497,10 +2497,13 @@ function generateInstaImages(){
 
     const COLS=2;
     const W2=1080;
-    const rowH=100;
-    const colW=W2/COLS;
+    const H2=1080; // インスタグラム正方形に固定
     const rows=Math.ceil(activeLocs.length/COLS);
-    const H2=Math.max(1080,140+rows*rowH+40);
+    const colW=W2/COLS;
+    // タイトル・区切り線・下枠の固定高さを除いた残りでrowHを決定
+    const titleH=96; // タイトル+区切り線の高さ
+    const bottomPad=20;
+    const rowH=Math.min(100,Math.floor((H2-titleH-bottomPad)/Math.max(rows,1)));
 
     const c2=document.createElement('canvas');c2.width=W2;c2.height=H2;
     const ctx2=c2.getContext('2d');
@@ -2539,28 +2542,33 @@ function generateInstaImages(){
       ctx2.beginPath();ctx2.moveTo(x+16,ay+rowH);ctx2.lineTo(x+colW-16,ay+rowH);ctx2.stroke();
 
       const px=x+24;
+      // フォントサイズをrowHに応じてスケール（基準rowH=100）
+      const scale=rowH/100;
+      const fName=Math.max(13,Math.round(22*scale));
+      const fHour=Math.max(11,Math.round(17*scale));
+      const fAddr=Math.max(10,Math.round(14*scale));
 
       // 場所名（1行目・太字）
       ctx2.fillStyle='#1a1a1a';
-      ctx2.font='bold 22px sans-serif';ctx2.textAlign='left';
+      ctx2.font=`bold ${fName}px sans-serif`;ctx2.textAlign='left';
       let name=l.name;
       while(ctx2.measureText(name).width>maxW&&name.length>1)name=name.slice(0,-1);
-      ctx2.fillText(name,px,ay+26);
+      ctx2.fillText(name,px,ay+Math.round(26*scale));
 
       // 営業時間（2行目・紫）
       if(l.hours){
         ctx2.fillStyle='#534AB7';
-        ctx2.font='17px sans-serif';
-        ctx2.fillText(l.hours,px,ay+50);
+        ctx2.font=`${fHour}px sans-serif`;
+        ctx2.fillText(l.hours,px,ay+Math.round(50*scale));
       }
 
       // 住所（3行目・グレー）
       if(l.address){
         ctx2.fillStyle='#888';
-        ctx2.font='14px sans-serif';
+        ctx2.font=`${fAddr}px sans-serif`;
         let addr=l.address;
         while(ctx2.measureText(addr).width>maxW&&addr.length>1)addr=addr.slice(0,-1);
-        ctx2.fillText(addr,px,ay+74);
+        ctx2.fillText(addr,px,ay+Math.round(74*scale));
       }
     });
 
