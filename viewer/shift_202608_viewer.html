@@ -1,0 +1,308 @@
+<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>2026年8月 シフト表</title>
+<style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif;background:#f5f5f0;color:#1a1a1a;font-size:14px;}header{background:#534AB7;color:white;padding:16px 20px;}header h1{font-size:18px;font-weight:500;margin-bottom:10px;}.fr{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}.fr label{font-size:13px;opacity:.85;}select.f{padding:5px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.4);font-size:13px;background:white;color:#1a1a1a;cursor:pointer;}.htabs{display:flex;gap:0;margin-bottom:16px;border-radius:8px;overflow:hidden;border:0.5px solid #534AB7;}.htab{padding:10px 20px;font-size:13px;font-weight:500;cursor:pointer;color:#534AB7;background:white;border:none;flex:1;text-align:center;}.htab.active{background:#534AB7;color:white;}.main{padding:16px;max-width:1000px;margin:0 auto;}.card{background:white;border-radius:12px;padding:1rem;margin-bottom:1rem;border:.5px solid #e5e5e0;}.ct{font-size:11px;font-weight:500;color:#999;letter-spacing:.05em;text-transform:uppercase;margin-bottom:10px;}.tw{overflow-x:auto;}table{border-collapse:collapse;min-width:100%;font-size:12px;}th,td{padding:5px 6px;border:.5px solid #e5e5e0;text-align:center;white-space:nowrap;}th{background:#f5f5f0;font-weight:500;color:#666;}td:first-child{text-align:left;}.cw{background:#E1F5EE;color:#085041;font-weight:500;}.co{color:#ccc;}.ch{background:#f5f5f0;color:#bbb;}.cu{background:#FAEEDA;color:#633806;}.dh{color:#c0392b;}.dc{background:white;border-radius:10px;padding:12px;margin-bottom:10px;border:.5px solid #e5e5e0;}.dh2{font-size:15px;font-weight:500;margin-bottom:8px;padding-bottom:6px;border-bottom:.5px solid #e5e5e0;}.ar{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:.5px solid #f0f0ea;}.ar:last-child{border-bottom:none;}.lp{font-size:11px;padding:2px 8px;border-radius:99px;background:#EEEDFE;color:#3C3489;font-weight:500;min-width:80px;text-align:center;}.sn2{font-size:13px;font-weight:500;}.nr{text-align:center;padding:2rem;color:#999;font-size:13px;}.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}.cal-dow{text-align:center;font-size:11px;font-weight:500;padding:4px 0;}.cal-day{min-height:80px;border:0.5px solid #e5e5e0;border-radius:6px;padding:4px;background:white;}.cal-day.hol{background:#fafafa;}.cal-dn{font-size:12px;font-weight:500;margin-bottom:3px;}.cal-entry{font-size:10px;padding:2px 5px;border-radius:3px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}.legend{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}.leg{display:flex;align-items:center;gap:4px;font-size:11px;}.leg-dot{width:12px;height:12px;border-radius:3px;}.sticky-col{position:sticky;left:0;z-index:1;background:white;}.sticky-col-loc{position:sticky;left:0;z-index:1;background:#EEEDFE;}footer{text-align:center;padding:16px;font-size:11px;color:#aaa;}</style></head><body>
+<header><h1>2026年8月 シフト表</h1>
+<div class="fr" id="shift-ctrl"><label>表示：</label><select class="f" id="vm" onchange="af()"><option value="table">表形式</option><option value="list">日別リスト</option></select><label>スタッフ：</label><select class="f" id="sf" onchange="af()"><option value="all">全員</option></select><label>場所：</label><select class="f" id="lf" onchange="af()"><option value="all">全場所</option></select><button class="f" style="cursor:pointer;background:#1D9E75;color:white;border:none;font-weight:500;" onclick="printViewerPDF()">🖨 印刷/PDF保存</button></div>
+</header>
+<div class="main">
+<div class="htabs"><button class="htab active" onclick="showTab('shift')">シフト表</button><button class="htab" onclick="showTab('car')">号車別</button><button class="htab" onclick="showTab('cal')">月間カレンダー</button></div>
+<div id="tab-shift"><div id="tv"><div class="card"><div class="ct">場所別割当表</div><div class="tw"><table id="lt"></table></div></div><div class="card"><div class="ct">スタッフ別出勤表</div><div class="tw"><table id="st"></table></div></div></div><div id="lv" style="display:none;"><div id="lc"></div></div></div>
+<div id="tab-car" style="display:none;"><div class="card"><div class="ct">号車別場所割当表</div><div class="tw"><table id="ct"></table></div></div></div>
+<div id="tab-cal" style="display:none;"><div class="card"><div id="legend-area" class="legend"></div><div class="cal-grid" id="cal-grid"></div></div></div>
+</div>
+<footer>閲覧専用シフト表 2026年8月</footer>
+<script>
+const staff=[{"id":5,"name":"山本秀典","abbr":"山本","color":"#8800ad","carNo":1,"role":"full","roleHistory":{}},{"id":3,"name":"井上亜冴","abbr":"亜冴","color":"#79a5fb","carNo":2,"role":"full","roleHistory":{}},{"id":1,"name":"野々村恵一","abbr":"野々","color":"#8df13b","carNo":3,"role":"full","roleHistory":{}},{"id":2,"name":"横田実莉","abbr":"横田","color":"#ffa58f","carNo":4,"role":"full","roleHistory":{}},{"id":4,"name":"井上勇麻","abbr":"勇麻","color":"#616161","carNo":5,"role":"full","roleHistory":{}},{"id":9,"name":"乙武優吾","abbr":"乙武","color":"#607D8B","carNo":6,"role":"full","roleHistory":{}},{"id":11,"name":"倉遥香","abbr":"倉遥","color":"#3F51B5","carNo":6,"role":"full","roleHistory":{}},{"id":6,"name":"萩原志希","abbr":"萩原","color":"#8f4c00","carNo":6,"role":"full","roleHistory":{}},{"id":10,"name":"姫野隼","abbr":"姫野","color":"#2b6227","carNo":6,"role":"full","roleHistory":{}},{"id":8,"name":"西垣咲良","abbr":"咲良","color":"#ffdbbd","carNo":7,"role":"full","roleHistory":{}},{"id":7,"name":"西垣佑希乃","abbr":"佑希","color":"#fad000","carNo":7,"role":"full","roleHistory":{}},{"id":13,"name":"井上知也","abbr":"井上知","color":"#006b0c","carNo":null,"role":"full","roleHistory":{"12":"full"}},{"id":14,"name":"清水健人","abbr":"清水","color":"#80ebf9","carNo":null,"role":"trainee","roleHistory":{}},{"id":12,"name":"北村安音","abbr":"北村","color":"#55b47e","carNo":null,"role":"full","roleHistory":{}},{"id":15,"name":"西垣重延","abbr":"西垣","color":"#FF5722","carNo":null,"role":"full","roleHistory":{}}],locs=[{"id":1,"name":"烏丸錦小路","abbr":"烏丸錦","detail":""},{"id":2,"name":"コープ山科新十条","abbr":"山科","detail":""},{"id":3,"name":"コープきぬがさ","abbr":"衣笠","detail":""},{"id":4,"name":"コープ京田辺","abbr":"京田辺","detail":""},{"id":5,"name":"コープ城陽","abbr":"城陽","detail":""},{"id":6,"name":"コープ桃山","abbr":"桃山","detail":""},{"id":7,"name":"上本町YUFURA","abbr":"上本町YU","detail":""},{"id":8,"name":"イズミヤ千里丘","abbr":"千里丘","detail":""},{"id":9,"name":"イズミヤ八尾","abbr":"八尾","detail":""},{"id":10,"name":"イズミヤ阪和堺","abbr":"阪和堺","detail":""},{"id":11,"name":"イズミヤ昆陽","abbr":"昆陽","detail":""},{"id":12,"name":"イズミヤ小林","abbr":"小林","detail":""},{"id":13,"name":"イズミヤ多田","abbr":"多田","detail":""},{"id":14,"name":"イズミヤ平野","abbr":"平野","detail":""},{"id":15,"name":"カナートモール伏見","abbr":"伏見","detail":""},{"id":17,"name":"イズミヤ八幡","abbr":"八幡","detail":""},{"id":18,"name":"ひらかたサンプラザ","abbr":"枚方","detail":""},{"id":19,"name":"BiVi二条","abbr":"二条","detail":""},{"id":20,"name":"神戸マルイ","abbr":"神戸マルイ","detail":""},{"id":21,"name":"なんばマルイ","abbr":"難波マルイ","detail":""},{"id":22,"name":"河原町オーパ","abbr":"河原町","detail":""},{"id":23,"name":"ハーベスリンクス梅田","abbr":"梅田","detail":""},{"id":24,"name":"近商ストア学園前","abbr":"学園前","detail":""},{"id":25,"name":"近鉄上本町駅改札内","abbr":"近上本町","detail":""},{"id":26,"name":"近鉄藤井寺駅改札前","abbr":"近藤井寺","detail":""},{"id":28,"name":"京都ダイハツカドノ店","abbr":"京ダイハツ","detail":""},{"id":29,"name":"あべのイベントスクエア","abbr":"あべの","detail":""},{"id":30,"name":"近鉄難波駅東口","abbr":"近鉄難","detail":""},{"id":31,"name":"西大寺駅タイムズプレイス","abbr":"西大寺","detail":""},{"id":32,"name":"阿部野橋駅東改札口内","abbr":"阿部野","detail":""},{"id":33,"name":"イズミヤ和泉中央","abbr":"和泉中央","detail":""}],ld={"1":[1,2,4,6,8,9,11,13,15,16,18,20,22,23,25,27,29,30],"2":[12,26],"3":[6,20],"4":[13,27],"5":[5,12,19],"6":[28],"7":[1,3,8,10,15,17,22,24,29,31],"8":[1,2,8,9,15,16,22,23,29,30],"9":[2,16],"10":[9,23],"11":[],"12":[],"13":[],"14":[],"15":[],"17":[],"18":[1,2,5,8,9,12,15,16,19,22,23,26,29,30],"19":[1,8,15,22,29],"20":[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,20,21,22,23,24,25,26,27,28,29,30,31],"21":[1,2,3,4,5,6,7],"22":[],"23":[],"24":[],"25":[],"26":[],"28":[],"29":[7,8,9,10,11,12,13,14,21,22,23,24,25,26,27,28,29,30,31],"30":[],"31":[],"32":[],"33":[]},as={"1":{"1":null,"2":2,"4":null,"6":null,"8":2,"9":2,"11":null,"13":null,"15":2,"16":null,"18":null,"20":null,"22":null,"23":null,"25":null,"27":null,"29":2,"30":2},"2":{"12":2,"26":1},"3":{"6":4,"20":2,"25":-1},"4":{"13":4,"27":4},"5":{"5":4,"12":4,"19":4},"6":{"28":4},"7":{"1":1,"3":1,"8":1,"10":1,"15":1,"17":1,"22":1,"24":1,"29":1,"31":1},"8":{"1":5,"2":5,"8":5,"9":5,"15":5,"16":5,"22":5,"23":5,"29":5,"30":5},"9":{"2":1,"16":1},"10":{"9":1,"23":1},"11":{},"12":{},"13":{},"14":{},"15":{},"17":{},"18":{"1":4,"2":3,"5":3,"8":3,"9":3,"12":1,"15":3,"16":4,"19":3,"22":3,"23":4,"26":5,"29":4,"30":4},"19":{"1":null,"8":null,"15":4,"22":4,"29":null},"20":{"1":6,"2":10,"3":10,"4":10,"5":6,"6":6,"7":10,"8":11,"9":6,"10":10,"11":10,"12":10,"13":6,"14":10,"15":11,"16":10,"17":10,"18":10,"20":6,"21":10,"22":6,"23":6,"24":10,"25":6,"26":10,"27":10,"28":6,"29":null,"30":1,"31":3},"21":{"1":8,"2":6,"3":7,"4":6,"5":7,"6":7,"7":6},"22":{},"23":{},"24":{},"25":{},"26":{},"28":{},"29":{"7":7,"8":8,"9":7,"10":7,"11":7,"12":5,"13":7,"14":7,"21":7,"22":7,"23":7,"24":3,"25":7,"26":7,"27":7,"28":3,"29":7,"30":7,"31":7},"30":{},"31":{},"32":{},"33":{}},sc={"1":{"1":"上本町YUFURA","2":"イズミヤ八尾","3":"上本町YUFURA","8":"上本町YUFURA","9":"イズミヤ阪和堺","10":"上本町YUFURA","12":"ひらかたサンプラザ","15":"上本町YUFURA","16":"イズミヤ八尾","17":"上本町YUFURA","22":"上本町YUFURA","23":"イズミヤ阪和堺","24":"上本町YUFURA","26":"コープ山科新十条","29":"上本町YUFURA","30":"神戸マルイ","31":"上本町YUFURA"},"2":{"2":"烏丸錦小路","8":"烏丸錦小路","9":"烏丸錦小路","12":"コープ山科新十条","15":"烏丸錦小路","20":"コープきぬがさ","29":"烏丸錦小路","30":"烏丸錦小路"},"3":{"2":"ひらかたサンプラザ","5":"ひらかたサンプラザ","8":"ひらかたサンプラザ","9":"ひらかたサンプラザ","15":"ひらかたサンプラザ","19":"ひらかたサンプラザ","22":"ひらかたサンプラザ","24":"あべのイベントスクエア","28":"あべのイベントスクエア","31":"神戸マルイ"},"4":{"1":"ひらかたサンプラザ","5":"コープ城陽","6":"コープきぬがさ","12":"コープ城陽","13":"コープ京田辺","15":"BiVi二条","16":"ひらかたサンプラザ","19":"コープ城陽","22":"BiVi二条","23":"ひらかたサンプラザ","27":"コープ京田辺","28":"コープ桃山","29":"ひらかたサンプラザ","30":"ひらかたサンプラザ"},"5":{"1":"イズミヤ千里丘","2":"イズミヤ千里丘","8":"イズミヤ千里丘","9":"イズミヤ千里丘","12":"あべのイベントスクエア","15":"イズミヤ千里丘","16":"イズミヤ千里丘","22":"イズミヤ千里丘","23":"イズミヤ千里丘","26":"ひらかたサンプラザ","29":"イズミヤ千里丘","30":"イズミヤ千里丘"},"6":{"1":"神戸マルイ","2":"なんばマルイ","4":"なんばマルイ","5":"神戸マルイ","6":"神戸マルイ","7":"なんばマルイ","9":"神戸マルイ","13":"神戸マルイ","20":"神戸マルイ","22":"神戸マルイ","23":"神戸マルイ","25":"神戸マルイ","28":"神戸マルイ"},"7":{"3":"なんばマルイ","5":"なんばマルイ","6":"なんばマルイ","7":"あべのイベントスクエア","9":"あべのイベントスクエア","10":"あべのイベントスクエア","11":"あべのイベントスクエア","13":"あべのイベントスクエア","14":"あべのイベントスクエア","21":"あべのイベントスクエア","22":"あべのイベントスクエア","23":"あべのイベントスクエア","25":"あべのイベントスクエア","26":"あべのイベントスクエア","27":"あべのイベントスクエア","29":"あべのイベントスクエア","30":"あべのイベントスクエア","31":"あべのイベントスクエア"},"8":{"1":"なんばマルイ","8":"あべのイベントスクエア"},"9":{},"10":{"2":"神戸マルイ","3":"神戸マルイ","4":"神戸マルイ","7":"神戸マルイ","10":"神戸マルイ","11":"神戸マルイ","12":"神戸マルイ","14":"神戸マルイ","16":"神戸マルイ","17":"神戸マルイ","18":"神戸マルイ","21":"神戸マルイ","24":"神戸マルイ","26":"神戸マルイ","27":"神戸マルイ"},"11":{"8":"神戸マルイ","15":"神戸マルイ"},"12":{},"13":{},"14":{},"15":{}},co={"1":{"7":6,"8":3,"13":6,"16":3,"19":8,"23":1,"24":7,"30":7},"3":{"9":2,"11":7,"14":8,"15":2,"17":6,"21":6,"24":6,"25":7,"27":7,"28":6,"29":6},"4":{"10":7},"5":{"2":1,"6":6,"10":6,"16":1,"17":8,"20":8,"22":1,"23":1,"24":8,"28":7,"29":1,"30":1,"31":7},"6":{"2":7,"4":7,"7":7,"13":8,"15":8,"21":7,"25":8,"28":9,"30":8},"7":{"7":8,"9":7,"13":7,"14":7,"15":8,"16":8,"26":8,"27":8,"28":8,"29":8,"30":8,"31":8},"8":{"12":6,"18":7,"26":7},"9":{"18":8},"13":{"4":7,"5":7,"6":7,"7":7,"8":7,"11":7,"12":7,"13":7,"14":7,"15":7,"18":8,"21":8,"22":8},"15":{"14":7}},sec={"8":{"1":"フードコートC","2":"フードコートC","8":"フードコートC","9":"フードコートC","15":"食品北玄関前","16":"食品北玄関前","22":"フードコートB","23":"フードコートB","29":"食品北玄関前","30":"食品北玄関前"}},days=31,y=2026,m=8;
+const circledNum=n=>['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩','⑪','⑫'][n-1]||String(n);
+const getRoleOnDayV=(s,d)=>{
+  if(!s||!s.roleHistory||Object.keys(s.roleHistory).length===0)return s?.role||'full';
+  const keys=Object.keys(s.roleHistory).map(Number).filter(k=>k<=d).sort((a,b)=>b-a);
+  return keys.length>0?s.roleHistory[keys[0]]:s.role;
+};
+const DOW=['日','月','火','水','木','金','土'];
+const sf=document.getElementById('sf'),lf=document.getElementById('lf');
+staff.forEach(s=>{const o=document.createElement('option');o.value=s.id;o.textContent=s.name;sf.appendChild(o);});
+locs.forEach(l=>{const o=document.createElement('option');o.value=l.id;o.textContent=l.name;lf.appendChild(o);});
+function showTab(t){
+  document.getElementById('tab-shift').style.display=t==='shift'?'block':'none';
+  document.getElementById('tab-car').style.display=t==='car'?'block':'none';
+  document.getElementById('tab-cal').style.display=t==='cal'?'block':'none';
+  document.getElementById('shift-ctrl').style.display=t==='shift'?'flex':'none';
+  document.querySelectorAll('.htab').forEach((b,i)=>b.classList.toggle('active',(t==='shift'&&i===0)||(t==='car'&&i===1)||(t==='cal'&&i===2)));
+  if(t==='car')renderCarTable();
+  if(t==='cal')renderCal();
+}
+function af(){const v=document.getElementById('vm').value,sid=sf.value,lid=lf.value;document.getElementById('tv').style.display=v==='table'?'block':'none';document.getElementById('lv').style.display=v==='list'?'block':'none';v==='table'?rt(sid,lid):rl(sid,lid);}
+function hd(){return'<thead><tr><th style="text-align:left;min-width:100px;position:sticky;top:0;left:0;z-index:3;background:#f5f5f0;">名前/場所</th>'+Array.from({length:days},(_,i)=>{const d=i+1,dw=DOW[new Date(y,m-1,d).getDay()];return'<th style="position:sticky;top:0;z-index:2;background:#f5f5f0;" class="'+(dw==='日'||dw==='土'?'dh':'')+'">' +d+'<br><span style="font-size:9px;">'+dw+'</span></th>';}).join('')+'</tr></thead>';}
+function cellLoc(d,l){
+  if(!(ld[l.id]||[]).includes(d))return'<td class="ch">―</td>';
+  const aid=as[l.id]?.[d];
+  if(aid===-1)return'<td class="ch">―</td>';
+  if(!aid||aid===null)return'<td class="cu">未</td>';
+  const s=staff.find(x=>x.id===aid);
+  const car=(co[s?.id]||{})[d]!==undefined?(co[s?.id]||{})[d]:s?.carNo;
+  const carLabel=car?circledNum(car):'';
+  const section=(sec[l.id]||{})[d]||'';
+  const dot=section?'<span style="position:absolute;top:1px;right:1px;width:5px;height:5px;border-radius:50%;background:#F59E0B;pointer-events:none;"></span>':'';
+  const tip=(s?s.abbr:'?')+(section?' ['+section+']':'');
+  const onclk=section?'onclick="showSecPopup(event,this)" data-sec="'+section+'" data-loc="'+l.name+'"':'';
+  return'<td class="cw" style="position:relative;cursor:'+(section?'pointer':'default')+';" '+onclk+' title="'+tip+'">'+carLabel+(s?s.abbr:'?')+dot+'</td>';
+}
+function renderCarTable(){
+  // 使用号車を収集（研修中除外）
+  const usedCars=new Set();
+  staff.forEach(s=>{
+    for(let d=1;d<=days;d++){
+      if(getRoleOnDayV(s,d)==='trainee')continue;
+      const car=(co[s.id]||{})[d]!==undefined?(co[s.id]||{})[d]:(s.carNo||null);
+      const v=(sc[s.id]||{})[d];
+      if(car&&v)usedCars.add(car);
+    }
+  });
+  const carList=Array.from(usedCars).sort((a,b)=>a-b);
+  if(carList.length===0){
+    document.getElementById('ct').innerHTML='<tr><td class="nr">号車データがありません</td></tr>';
+    return;
+  }
+  let html='<thead><tr><th style="text-align:center;min-width:60px;position:sticky;top:0;left:0;z-index:3;background:#f5f5f0;">号車</th>'+
+    Array.from({length:days},(_,i)=>{const d=i+1,dw=DOW[new Date(y,m-1,d).getDay()];return'<th style="position:sticky;top:0;z-index:2;background:#f5f5f0;" class="'+(dw==='日'||dw==='土'?'dh':'')+'">'+d+'<br><span style="font-size:9px;">'+dw+'</span></th>';}).join('')+
+    '<th style="position:sticky;top:0;right:0;background:#f5f5f0;z-index:3;">計</th></tr></thead><tbody>';
+  carList.forEach(carNo=>{
+    let carTotal=0;
+    html+='<tr><td class="sticky-col" style="text-align:center;font-weight:600;min-width:60px;">'+circledNum(carNo)+'号車</td>';
+    for(let d=1;d<=days;d++){
+      const s=staff.find(st=>{
+        if(getRoleOnDayV(st,d)==='trainee')return false;
+        const car=(co[st.id]||{})[d]!==undefined?(co[st.id]||{})[d]:(st.carNo||null);
+        return car===carNo&&(sc[st.id]||{})[d];
+      });
+      if(!s){html+='<td class="co">―</td>';continue;}
+      carTotal++;
+      const v=(sc[s.id]||{})[d];
+      const l=locs.find(x=>x.name===v);
+      const abbr=l?l.abbr:v.slice(0,3);
+      const section=l?(sec[l.id]||{})[d]||'':'';
+      const dot=section?'<span style="position:absolute;top:1px;right:1px;width:5px;height:5px;border-radius:50%;background:#F59E0B;pointer-events:none;"></span>':'';
+      const onclk=section?'onclick="showSecPopup(event,this)" data-sec="'+section+'" data-loc="'+v+'"':'';
+      html+='<td class="cw" style="position:relative;cursor:'+(section?'pointer':'default')+';" '+onclk+' title="'+v+(section?' ['+section+']':'')+'：'+s.name+'">'+abbr+dot+'</td>';
+    }
+    html+='<td style="font-weight:500;">'+carTotal+'</td></tr>';
+  });
+  html+='</tbody>';
+  document.getElementById('ct').innerHTML=html;
+}
+function rt(sid,lid){
+  const fl=lid==='all'?locs:locs.filter(l=>String(l.id)===lid);
+  const fs=sid==='all'?staff:staff.filter(s=>String(s.id)===sid);
+  document.getElementById('lt').innerHTML=hd()+'<tbody>'+fl.map(l=>'<tr><td class="sticky-col-loc" style="color:#3C3489;font-weight:500;white-space:nowrap;min-width:100px;">'+l.name+'</td>'+Array.from({length:days},(_,i)=>{
+    const d=i+1,aid=as[l.id]?.[d];
+    if(sid!=='all'&&aid>0&&String(aid)!==sid)return'<td class="co">―</td>';
+    return cellLoc(d,l);
+  }).join('')+'</tr>').join('')+'</tbody>';
+  document.getElementById('st').innerHTML=hd()+'<tbody>'+fs.map(s=>{
+    return'<tr><td class="sticky-col" style="white-space:nowrap;min-width:100px;"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:'+s.color+';margin-right:4px;vertical-align:middle;"></span>'+s.name+'</td>'+Array.from({length:days},(_,i)=>{
+      const d=i+1,v=(sc[s.id]||{})[d];
+      if(lid!=='all'&&v){const l=locs.find(x=>x.name===v);if(l&&String(l.id)!==lid)return'<td class="co">―</td>';}
+      if(v){
+        const l=locs.find(x=>x.name===v);
+        const car=(co[s.id]||{})[d]!==undefined?(co[s.id]||{})[d]:s.carNo;
+        const carLabel=car?circledNum(car):'';
+        const stSec=l?(sec[l.id]||{})[d]||'':'';
+        const stDot=stSec?'<span style="position:absolute;top:1px;right:1px;width:5px;height:5px;border-radius:50%;background:#F59E0B;pointer-events:none;"></span>':'';
+        const stOnclk=stSec?'onclick="showSecPopup(event,this)" data-sec="'+stSec+'" data-loc="'+(l?l.name:v)+'"':'';
+        return'<td class="cw" style="position:relative;cursor:'+(stSec?'pointer':'default')+';" '+stOnclk+' title="'+v+(stSec?' ['+stSec+']':'')+'">'+carLabel+(l?l.abbr:v.slice(0,3))+stDot+'</td>';
+      }
+      return'<td class="co">―</td>';
+    }).join('')+'</tr>';
+  }).join('')+'</tbody>';
+}
+function rl(sid,lid){
+  const fl=lid==='all'?locs:locs.filter(l=>String(l.id)===lid);
+  let h='';
+  for(let d=1;d<=days;d++){
+    const dow=new Date(y,m-1,d).getDay(),dw=DOW[dow],isH=dow===0||dow===6;
+    const al=fl.filter(l=>(ld[l.id]||[]).includes(d));
+    if(!al.length)continue;
+    const rows=al.map(l=>{
+      const aid=as[l.id]?.[d];
+      if(aid===-1)return'';
+      if(sid!=='all'&&String(aid)!==sid)return'';
+      const s=staff.find(x=>x.id===aid);
+      const section=(sec[l.id]||{})[d]||'';
+      const secBadge=section?'<span style="font-size:10px;color:#92400E;background:#FEF3C7;border-radius:4px;padding:1px 5px;margin-left:4px;">'+section+'</span>':'';
+      return'<div class="ar"><span class="lp">'+l.name+secBadge+'</span><span class="sn2">'+(s?s.name:'<span style="color:#A32D2D;">未割当</span>')+'</span></div>';
+    }).filter(Boolean).join('');
+    if(!rows&&sid!=='all')continue;
+    h+='<div class="dc"><div class="dh2" style="color:'+(isH?'#c0392b':'#1a1a1a')+';">'+d+'日（'+dw+'）</div>'+(rows||'<div class="nr">出店なし</div>')+'</div>';
+  }
+  document.getElementById('lc').innerHTML=h||'<div class="nr">表示する情報がありません</div>';
+}
+function renderCal(){
+  // 凡例
+  document.getElementById('legend-area').innerHTML=staff.map(s=>'<div class="leg"><div class="leg-dot" style="background:'+s.color+'"></div><span>'+s.abbr+'</span><span style="color:#888;font-size:10px;">'+s.name+'</span></div>').join('');
+  const firstDow=new Date(y,m-1,1).getDay();
+  const dows=DOW.map((d,i)=>'<div class="cal-dow" style="color:'+(i===0?'#c0392b':i===6?'#2980b9':'#666')+'">'+d+'</div>').join('');
+  let cells=dows;
+  for(let i=0;i<firstDow;i++)cells+='<div></div>';
+  for(let d=1;d<=days;d++){
+    const dw=new Date(y,m-1,d).getDay(),isH=dw===0||dw===6;
+    const al=locs.filter(l=>(ld[l.id]||[]).includes(d));
+    const entries=al.map(l=>{
+      const aid=as[l.id]?.[d];
+      if(!aid||aid<=0)return'';
+      const s=staff.find(x=>x.id===aid);if(!s)return'';
+      const hex=s.color.replace('#','');
+      const r=parseInt(hex.substr(0,2),16),g=parseInt(hex.substr(2,2),16),b=parseInt(hex.substr(4,2),16);
+      const tc=(0.299*r+0.587*g+0.114*b)/255>0.5?'#1a1a1a':'white';
+      const calSec=(sec[l.id]||{})[d]||'';
+      return'<div class="cal-entry" style="background:'+s.color+';color:'+tc+';" title="'+l.name+(calSec?' ['+calSec+']':'')+'：'+s.name+'"><span style="opacity:0.8;font-size:9px;">'+l.abbr+'</span> '+s.abbr+'</div>';
+    }).filter(Boolean).join('');
+    cells+='<div class="cal-day'+(isH?' hol':'')+'"><div class="cal-dn" style="color:'+(isH?'#c0392b':'#1a1a1a')+';">'+d+'</div>'+(entries||'<div style="color:#ddd;font-size:9px;">―</div>')+'</div>';
+  }
+  document.getElementById('cal-grid').innerHTML=cells;
+}
+
+function showSecPopup(e,td){
+  const section=td.dataset.sec||'';const locName=td.dataset.loc||'';
+  if(!section)return;
+  e.stopPropagation();
+  const old=document.getElementById('sec-toast');if(old)old.remove();
+  const toast=document.createElement('div');
+  toast.id='sec-toast';
+  toast.style.cssText='position:fixed;z-index:9999;background:rgba(30,20,60,0.92);color:white;padding:10px 16px;border-radius:10px;font-size:13px;max-width:220px;text-align:center;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,0.3);transition:opacity 0.3s;';
+  toast.innerHTML='<div style="font-size:11px;opacity:0.75;margin-bottom:3px;">'+locName+'</div><div style="font-weight:600;">🏢 '+section+'</div>';
+  const px=e.clientX||(e.touches&&e.touches[0]?e.touches[0].clientX:window.innerWidth/2);
+  const py=e.clientY||(e.touches&&e.touches[0]?e.touches[0].clientY:100);
+  toast.style.left=Math.min(px,window.innerWidth-160)+'px';
+  toast.style.top=Math.max(py-70,8)+'px';
+  document.body.appendChild(toast);
+  setTimeout(()=>{toast.style.opacity='0';setTimeout(()=>toast.remove(),300);},2200);
+}
+document.addEventListener('click',()=>{const t=document.getElementById('sec-toast');if(t)t.remove();});
+function printViewerPDF(){
+  const locDatesP={};
+  locs.forEach(l=>{locDatesP[l.id]=ld[l.id]||[];});
+  const dupCarP={};
+  for(let d=1;d<=days;d++){
+    const cc={};
+    staff.forEach(s=>{
+      const car=(co[s.id]||{})[d]!==undefined?(co[s.id]||{})[d]:(s.carNo||null);
+      if(!car||!sc[s.id]?.[d])return;
+      cc[car]=(cc[car]||0)+1;
+    });
+    dupCarP[d]=new Set(Object.entries(cc).filter(([,n])=>n>1).map(([c])=>Number(c)));
+  }
+  const maxStLen=Math.max(...staff.map(s=>s.name.length),2);
+  const maxLocLen=Math.max(...locs.map(l=>l.name.length),2);
+  const nameW=Math.max(60,Math.max(maxStLen,maxLocLen)*7+8);
+  const dayW=Array.from({length:days},(_,i)=>{
+    const d=i+1;let mx=22;
+    staff.forEach(s=>{
+      const v=sc[s.id]?.[d];if(!v)return;
+      const car=(co[s.id]||{})[d]!==undefined?(co[s.id]||{})[d]:s.carNo;
+      const l=locs.find(x=>x.name===v);
+      const abbr=l?l.abbr:v.slice(0,3);
+      const len=(car?1:0)+abbr.length;
+      if(len*6+4>mx)mx=len*6+4;
+    });
+    return Math.min(mx,50);
+  });
+  const hdrsP=Array.from({length:days},(_,i)=>{
+    const d=i+1,dw=DOW[new Date(y,m-1,d).getDay()];
+    const isH=dw==='日'||dw==='土';
+    return'<th class="dc" style="width:'+dayW[i]+'px;font-size:7px;padding:1px;'+(isH?'color:#c0392b;':'')+'">'+d+'<br>'+dw+'</th>';
+  }).join('');
+  const locTableRows=locs.map(l=>{
+    const total=(locDatesP[l.id]||[]).filter(d=>{const sid=(as[l.id]||{})[d];return sid&&sid>0;}).length;
+    const cells=Array.from({length:days},(_,i)=>{
+      const d=i+1;
+      if(!(locDatesP[l.id]||[]).includes(d))return'<td class="dc hol">―</td>';
+      const sid=(as[l.id]||{})[d];
+      if(sid===-1||!sid)return'<td class="dc unas">'+(sid===-1?'―':'未')+'</td>';
+      const s=staff.find(x=>x.id===sid);
+      const car=(co[sid]||{})[d]!==undefined?(co[sid]||{})[d]:s?.carNo;
+      const pDup=car&&dupCarP[d]?.has(car);
+      const carLabel=car?(pDup?'<span style="color:#c0392b;font-weight:bold">'+circledNum(car)+'</span>':circledNum(car)):'';
+      const mainLabel=s?s.abbr:'?';
+      return'<td class="dc work">'+carLabel+mainLabel+'</td>';
+    }).join('');
+    return'<tr><td class="nc loc-name">'+l.name+'</td>'+cells+'<td class="tc">'+total+'</td></tr>';
+  }).join('');
+  const staffTableRows=staff.map(s=>{
+    const sched=sc[s.id]||{};
+    const cnt=Object.values(sched).filter(v=>v).length;
+    const cells=Array.from({length:days},(_,i)=>{
+      const d=i+1,v=sched[d];
+      if(!v)return'<td class="dc off">―</td>';
+      const car=(co[s.id]||{})[d]!==undefined?(co[s.id]||{})[d]:s.carNo;
+      const pDupS=car&&dupCarP[d]?.has(car);
+      const carLabel=car?(pDupS?'<span style="color:#c0392b;font-weight:bold">'+circledNum(car)+'</span>':circledNum(car)):'';
+      const l=locs.find(x=>x.name===v);
+      const abbr=l?l.abbr:v.slice(0,3);
+      const isT=getRoleOnDayV(s,d)==='trainee';
+      return'<td class="dc work">'+(isT?'🔰':'')+carLabel+abbr+'</td>';
+    }).join('');
+    return'<tr><td class="nc">'+s.name+'</td>'+cells+'<td class="tc">'+cnt+'</td></tr>';
+  }).join('');
+  const totalLocDays=locs.reduce((sum,l)=>sum+(locDatesP[l.id]||[]).filter(d=>{const sid=(as[l.id]||{})[d];return sid&&sid>0;}).length,0);
+  const staffGrand=staff.reduce((sum,s)=>sum+Object.values(sc[s.id]||{}).filter(v=>v).length,0);
+  // 号車別
+  const usedCarsP=new Set();
+  staff.forEach(s=>{
+    for(let d=1;d<=days;d++){
+      if(getRoleOnDayV(s,d)==='trainee')continue;
+      const car=(co[s.id]||{})[d]!==undefined?(co[s.id]||{})[d]:(s.carNo||null);
+      if(car&&sc[s.id]?.[d])usedCarsP.add(car);
+    }
+  });
+  const carListP=Array.from(usedCarsP).sort((a,b)=>a-b);
+  const carTableRows=carListP.map(carNo=>{
+    let carTotal=0;
+    const cells=Array.from({length:days},(_,i)=>{
+      const d=i+1;
+      const s=staff.find(st=>{
+        if(getRoleOnDayV(st,d)==='trainee')return false;
+        const car=(co[st.id]||{})[d]!==undefined?(co[st.id]||{})[d]:(st.carNo||null);
+        return car===carNo&&sc[st.id]?.[d];
+      });
+      if(!s)return'<td class="dc off">―</td>';
+      carTotal++;
+      const v=sc[s.id][d];
+      const l=locs.find(x=>x.name===v);
+      const abbr=l?l.abbr:v.slice(0,3);
+      return'<td class="dc work">'+abbr+'</td>';
+    }).join('');
+    return'<tr><td class="nc loc-name">'+circledNum(carNo)+'号車</td>'+cells+'<td class="tc">'+carTotal+'</td></tr>';
+  }).join('');
+  const carSectionHtml=carListP.length>0?(
+    '<tr><td colspan="'+(days+2)+'" class="sec-hdr">号車別場所割当表</td></tr>'+
+    '<tr class="thr"><th class="nc" style="text-align:left;">号車</th>'+hdrsP+'<th class="tc">計</th></tr>'+
+    carTableRows
+  ):'';
+  const printHtml='<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"/>'+
+    '<title>'+y+'年'+m+'月 シフト表</title>'+
+    '<style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:"Hiragino Sans",YuGothic,sans-serif;font-size:8px;padding:8mm;}'+
+    'h2{font-size:12px;margin-bottom:4px;}table{border-collapse:collapse;table-layout:fixed;margin-bottom:4px;}'+
+    'th,td{border:0.5px solid #ccc;padding:1px 2px;text-align:center;vertical-align:middle;overflow:hidden;white-space:nowrap;}'+
+    'th{background:#f5f5f0;font-weight:500;}.nc{text-align:left;width:'+nameW+'px;min-width:'+nameW+'px;font-size:8px;white-space:nowrap;padding:1px 3px;}'+
+    '.dc{font-size:7px;}.tc{width:18px;font-weight:bold;}.hol{background:#f5f5f0;color:#ccc;}.unas{background:#FAEEDA;color:#633806;}'+
+    '.work{background:#E1F5EE;color:#085041;}.off{color:#ccc;}.loc-name{background:#EEEDFE;color:#3C3489;font-weight:bold;}'+
+    '.summary{font-size:8px;color:#555;margin-bottom:6px;}.sec-hdr{background:#e8e8e8;font-weight:bold;font-size:9px;text-align:left;padding:3px 4px;color:#333;}'+
+    '@media print{@page{size:A4 landscape;margin:6mm;}body{padding:0;}-webkit-print-color-adjust:exact;print-color-adjust:exact;}'+
+    '</style></head><body>'+
+    '<h2>'+y+'年'+m+'月 シフト表</h2>'+
+    '<div class="summary">月間総出店: '+totalLocDays+'日　スタッフ総出勤: '+staffGrand+'日　場所数: '+locs.length+'　スタッフ数: '+staff.length+'名</div>'+
+    '<table><colgroup><col style="width:'+nameW+'px">'+Array.from({length:days},(_,i)=>'<col style="width:'+dayW[i]+'px">').join('')+'<col style="width:18px"></colgroup>'+
+    '<tbody><tr><td colspan="'+(days+2)+'" class="sec-hdr">場所別割当表</td></tr>'+
+    '<tr class="thr"><th class="nc" style="text-align:left;">場所</th>'+hdrsP+'<th class="tc">計</th></tr>'+
+    locTableRows+
+    '<tr><td colspan="'+(days+2)+'" class="sec-hdr">スタッフ別出勤表</td></tr>'+
+    '<tr class="thr"><th class="nc" style="text-align:left;">名前</th>'+hdrsP+'<th class="tc">計</th></tr>'+
+    staffTableRows+carSectionHtml+
+    '</tbody></table></body></html>';
+  const w=window.open('','_blank');
+  w.document.write(printHtml);
+  w.document.close();
+  w.onload=()=>{w.print();};
+}
+af();
+</script></body></html>
