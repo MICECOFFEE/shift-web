@@ -1758,6 +1758,9 @@ function renderResult(keepScroll){
         const stTitle=`${v}${stSec?' ['+stSec+']':''}${tipSuffix}`;
         return`<td class="c-work" style="cursor:pointer;position:relative;${isT?'border-bottom:2px solid #6B21A8;':''}" onclick="clickStaffCell(${s.id},${d},this,event)" oncontextmenu="${ctxFn};return false;" title="${stTitle}">${traineeIcon}${carLabel}${abbr}${stSecDot}</td>`;
       }
+      const wish=(wishes[s.id]||{})[d]||'none';
+      if(wish==='off')return`<td class="c-req-off" style="cursor:pointer;" onclick="clickStaffCell(${s.id},${d},this,event)" title="希望休">✕</td>`;
+      if(wish==='want')return`<td class="c-work" style="cursor:pointer;opacity:0.5;" onclick="clickStaffCell(${s.id},${d},this,event)" title="希望出勤">○</td>`;
       return`<td class="c-off" style="cursor:pointer;" onclick="clickStaffCell(${s.id},${d},this,event)" title="クリックで割り当て">―</td>`;
     }).join('');
     return`<tr>
