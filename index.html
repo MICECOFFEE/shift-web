@@ -316,7 +316,10 @@ table.sg{border-collapse:collapse;}
     <div id="p-wishes" class="panel">
       <div class="card">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-          <div class="sec-title" style="margin-bottom:0;">希望休・希望出勤</div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div class="sec-title" style="margin-bottom:0;">希望休・希望出勤</div>
+            <span id="wish-month-label" style="font-size:13px;font-weight:600;color:#534AB7;background:#EEEDFE;padding:2px 10px;border-radius:99px;"></span>
+          </div>
           <button class="section-reset-btn" onclick="resetWishes()">🗑 希望休リセット</button>
         </div>
         <p class="muted" style="margin-bottom:10px;">タップで切替：<span style="background:#FCEBEB;color:#A32D2D;padding:1px 6px;border-radius:4px;font-size:11px;">✕</span> 希望休　<span style="background:#E1F5EE;color:#085041;padding:1px 6px;border-radius:4px;font-size:11px;">◎</span> 希望出勤　／　<span style="font-size:11px;color:#534AB7;">Shift+クリックで範囲一括設定</span></p>
@@ -1443,6 +1446,8 @@ function setPriority(lid,sid,val){
 /* ===== 希望休 ===== */
 function renderWishes(){
   const{days,y,m}=getMonthInfo();
+  const ml=document.getElementById('wish-month-label');
+  if(ml)ml.textContent=`${y}年${m}月`;
   document.getElementById('wish-list').innerHTML=staff.map(s=>{
     if(!wishes[s.id])wishes[s.id]={};
     const dbtns=Array.from({length:days},(_,i)=>{
@@ -1608,18 +1613,29 @@ function clearHoverHighlight(table){
 function setupScrollSync(){
   const loc=document.getElementById('loc-table-wrap');
   const st=document.getElementById('staff-table-wrap');
+  const car=document.getElementById('car-table-wrap');
   if(!loc||!st)return;
   // 名前列幅を同期
   syncNameColWidth();
   // ホバーハイライトを設定
   setupHoverHighlight();
   // 既存リスナーの重複防止
-  if(loc._syncHandler){loc.removeEventListener('scroll',loc._syncHandler);}
-  if(st._syncHandler){st.removeEventListener('scroll',st._syncHandler);}
-  loc._syncHandler=()=>{if(loc._syncing)return;st._syncing=true;st.scrollLeft=loc.scrollLeft;st._syncing=false;};
-  st._syncHandler=()=>{if(st._syncing)return;loc._syncing=true;loc.scrollLeft=st.scrollLeft;loc._syncing=false;};
-  loc.addEventListener('scroll',loc._syncHandler,{passive:true});
-  st.addEventListener('scroll',st._syncHandler,{passive:true});
+  [loc,st,car].filter(Boolean).forEach(el=>{
+    if(el._syncHandler)el.removeEventListener('scroll',el._syncHandler);
+  });
+  const wraps=[loc,st,car].filter(Boolean);
+  wraps.forEach(el=>{
+    el._syncHandler=()=>{
+      if(el._syncing)return;
+      wraps.forEach(other=>{
+        if(other===el)return;
+        other._syncing=true;
+        other.scrollLeft=el.scrollLeft;
+        other._syncing=false;
+      });
+    };
+    el.addEventListener('scroll',el._syncHandler,{passive:true});
+  });
 }
 function saveScrollPos(){
   const sg1=document.getElementById('loc-table-wrap');
@@ -1847,11 +1863,15 @@ function renderResult(keepScroll){
       return (carLabel?1:0)+abbr.length;
     }));
   });
-  // 最大文字数→px変換（日本語1文字≒11px, パディング込み）
+  // 各日のセル幅を計算してcolgroupで全テーブル統一（ズレ防止）
+  const dayWidths=dayMaxLen.map(len=>Math.max(28,len*11+10));
+  const allMaxW=Math.max(...dayWidths); // 全日共通の最大幅を使用してズレを防ぐ
+  const dayColW=allMaxW+'px';
+  const colgroup=`<colgroup><col style="width:${nameColW}">${Array(days).fill(`<col style="width:${dayColW}">`).join('')}<col style="width:32px"></colgroup>`;
+  const carColgroup=`<colgroup><col style="width:56px">${Array(days).fill(`<col style="width:${dayColW}">`).join('')}<col style="width:32px"></colgroup>`;
   const hdrs=Array.from({length:days},(_,i)=>{
     const d=i+1,dw=DOW[new Date(y,m-1,d).getDay()];
-    const minW=Math.max(28,dayMaxLen[i]*11+10)+'px';
-    return`<th style="position:sticky;top:0;background:#f5f5f0;z-index:2;min-width:${minW};${dw==='日'||dw==='土'?'color:#c0392b;':''}">${d}<br><span style="font-size:9px;">${dw}</span></th>`;
+    return`<th style="position:sticky;top:0;background:#f5f5f0;z-index:2;${dw==='日'||dw==='土'?'color:#c0392b;':''}">${d}<br><span style="font-size:9px;">${dw}</span></th>`;
   }).join('');
 
   // hdrs定義後にcarTableHtmlを生成（hdrs参照のため）
@@ -1863,8 +1883,9 @@ function renderResult(keepScroll){
       </div>
       <div id="car-table-wrap" style="overflow-x:auto;max-height:300px;overflow-y:auto;">
         <table class="sg">
+          ${carColgroup}
           <thead><tr>
-            <th class="col-name" style="position:sticky;top:0;left:0;z-index:3;background:#f5f5f0;text-align:center;min-width:${carNameW};">号車</th>
+            <th class="col-name" style="position:sticky;top:0;left:0;z-index:3;background:#f5f5f0;text-align:center;">号車</th>
             ${hdrs}
             <th class="col-total" style="position:sticky;top:0;right:0;background:#f5f5f0;z-index:3;">計</th>
           </tr></thead>
@@ -1874,6 +1895,7 @@ function renderResult(keepScroll){
     </div>`:'';
 
   document.getElementById('result-area').innerHTML=`
+    <div style="font-size:15px;font-weight:700;color:#534AB7;margin-bottom:10px;">${y}年${m}月 シフト表</div>
     <div class="metrics">
       <div class="metric"><div class="metric-label">スタッフ数</div><div class="metric-val">${staff.length}名</div></div>
       <div class="metric"><div class="metric-label">出店場所</div><div class="metric-val">${locs.length}箇所</div></div>
@@ -1924,8 +1946,9 @@ function renderResult(keepScroll){
       </div>
       <div id="loc-table-wrap" style="overflow-x:auto;max-height:340px;overflow-y:auto;">
         <table class="sg">
+          ${colgroup}
           <thead><tr>
-            <th class="col-name" style="position:sticky;top:0;left:0;z-index:3;background:#f5f5f0;text-align:left;min-width:${nameColW};">場所</th>
+            <th class="col-name" style="position:sticky;top:0;left:0;z-index:3;background:#f5f5f0;text-align:left;">場所</th>
             ${hdrs}
             <th class="col-total" style="position:sticky;top:0;right:0;background:#f5f5f0;z-index:3;">計</th>
           </tr></thead>
@@ -1946,8 +1969,9 @@ function renderResult(keepScroll){
       </div>
       <div id="staff-table-wrap" style="overflow-x:auto;max-height:400px;overflow-y:auto;">
         <table class="sg">
+          ${colgroup}
           <thead><tr>
-            <th class="col-name" style="position:sticky;top:0;left:0;z-index:3;background:#f5f5f0;text-align:left;min-width:${nameColW};">名前</th>
+            <th class="col-name" style="position:sticky;top:0;left:0;z-index:3;background:#f5f5f0;text-align:left;">名前</th>
             ${hdrs}
             <th class="col-total" style="position:sticky;top:0;right:0;background:#f5f5f0;z-index:3;">計</th>
           </tr></thead>
