@@ -1519,38 +1519,7 @@ function generate(){
 
 /* ===== シフト表描画（手動編集対応） ===== */
 function syncNameColWidth(){
-  // スタッフ別名前列の実幅を取得してcol要素で場所別に適用
-  const stTable=document.querySelector('#staff-table-wrap table.sg');
-  const locTable=document.querySelector('#loc-table-wrap table.sg');
-  if(!stTable||!locTable)return;
-  // スタッフ別の名前列th（最初のth）の実幅を取得
-  const stNameTh=stTable.querySelector('thead th.col-name');
-  if(!stNameTh)return;
-  const w=stNameTh.getBoundingClientRect().width;
-  if(!w)return;
-  // 場所別テーブルのcolgroupの1列目（名前列）を上書き
-  let locCG=locTable.querySelector('colgroup');
-  if(!locCG){
-    locCG=document.createElement('colgroup');
-    locTable.prepend(locCG);
-  }
-  // col要素が足りない場合に補完
-  const stCols=stTable.querySelectorAll('colgroup col');
-  while(locCG.children.length<stCols.length){
-    locCG.appendChild(document.createElement('col'));
-  }
-  // 1列目（名前列）の幅をスタッフ別に合わせる
-  if(locCG.children[0]){
-    locCG.children[0].style.width=Math.ceil(w)+'px';
-    locCG.children[0].style.minWidth=Math.ceil(w)+'px';
-  }
-  // 2列目以降はスタッフ別に合わせる（日付列・計列）
-  stCols.forEach((col,i)=>{
-    if(i===0)return; // 名前列は上で処理済
-    if(!locCG.children[i])return;
-    const sw=col.getBoundingClientRect().width||col.style.width;
-    if(sw)locCG.children[i].style.width=(typeof sw==='number'?Math.ceil(sw)+'px':sw);
-  });
+  // colgroup方式で全テーブルの幅を統一済みのため、DOM操作は不要
 }
 /* ===== 場所別・スタッフ別の並べ替え ===== */
 function sortLocs(mode){
@@ -1640,19 +1609,23 @@ function setupScrollSync(){
 function saveScrollPos(){
   const sg1=document.getElementById('loc-table-wrap');
   const sg2=document.getElementById('staff-table-wrap');
+  const sg3=document.getElementById('car-table-wrap');
   return{
     locX:sg1?sg1.scrollLeft:0,
     locY:sg1?sg1.scrollTop:0,
     stX:sg2?sg2.scrollLeft:0,
     stY:sg2?sg2.scrollTop:0,
+    carX:sg3?sg3.scrollLeft:0,
     winY:window.scrollY||0
   };
 }
 function restoreScrollPos(pos){
   const sg1=document.getElementById('loc-table-wrap');
   const sg2=document.getElementById('staff-table-wrap');
+  const sg3=document.getElementById('car-table-wrap');
   if(sg1){sg1.scrollLeft=pos.locX;sg1.scrollTop=pos.locY;}
   if(sg2){sg2.scrollLeft=pos.stX;sg2.scrollTop=pos.stY;}
+  if(sg3){sg3.scrollLeft=pos.carX||0;}
   window.scrollTo(0,pos.winY);
 }
 
@@ -1821,7 +1794,7 @@ function renderResult(keepScroll){
     }
   });
   const carNumList=Array.from(usedCars).sort((a,b)=>a-b);
-  const carNameW='56px';
+  const carNameW=nameColW; // 名前列幅を他テーブルと統一
   const carRows=carNumList.map(carNo=>{
     let carTotal=0;
     const cells=Array.from({length:days},(_,i)=>{
@@ -1842,7 +1815,7 @@ function renderResult(keepScroll){
       return`<td class="c-work" style="position:relative;" title="${v}${sec?' ['+sec+']':''}：${s.name}">${abbr}${secDot}</td>`;
     }).join('');
     return`<tr>
-      <td class="col-name" style="position:sticky;left:0;z-index:1;background:white;white-space:nowrap;min-width:${carNameW};text-align:center;font-weight:600;">${circledNum(carNo)}号車</td>
+      <td class="col-name" style="position:sticky;left:0;z-index:1;background:white;white-space:nowrap;min-width:${nameColW};text-align:center;font-weight:600;">${circledNum(carNo)}号車</td>
       ${cells}<td class="col-total" style="font-weight:500;position:sticky;right:0;background:white;">${carTotal}</td></tr>`;
   }).join('');
 
@@ -1867,8 +1840,9 @@ function renderResult(keepScroll){
   const dayWidths=dayMaxLen.map(len=>Math.max(28,len*11+10));
   const allMaxW=Math.max(...dayWidths); // 全日共通の最大幅を使用してズレを防ぐ
   const dayColW=allMaxW+'px';
+  // 全3テーブル共通のcolgroupを1つだけ定義
   const colgroup=`<colgroup><col style="width:${nameColW}">${Array(days).fill(`<col style="width:${dayColW}">`).join('')}<col style="width:32px"></colgroup>`;
-  const carColgroup=`<colgroup><col style="width:56px">${Array(days).fill(`<col style="width:${dayColW}">`).join('')}<col style="width:32px"></colgroup>`;
+  const carColgroup=colgroup; // 号車別も全く同じcolgroupを使用
   const hdrs=Array.from({length:days},(_,i)=>{
     const d=i+1,dw=DOW[new Date(y,m-1,d).getDay()];
     return`<th style="position:sticky;top:0;background:#f5f5f0;z-index:2;${dw==='日'||dw==='土'?'color:#c0392b;':''}">${d}<br><span style="font-size:9px;">${dw}</span></th>`;
@@ -1885,7 +1859,7 @@ function renderResult(keepScroll){
         <table class="sg">
           ${carColgroup}
           <thead><tr>
-            <th class="col-name" style="position:sticky;top:0;left:0;z-index:3;background:#f5f5f0;text-align:center;">号車</th>
+            <th class="col-name" style="position:sticky;top:0;left:0;z-index:3;background:#f5f5f0;text-align:center;min-width:${nameColW};">号車</th>
             ${hdrs}
             <th class="col-total" style="position:sticky;top:0;right:0;background:#f5f5f0;z-index:3;">計</th>
           </tr></thead>
