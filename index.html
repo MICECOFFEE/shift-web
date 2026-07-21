@@ -2770,7 +2770,12 @@ function printShift(){
     const cnt=Object.values(sched).filter(v=>v).length;
     const cells=Array.from({length:days},(_,i)=>{
       const d=i+1,v=sched[d];
-      if(!v)return`<td class="dc off">―</td>`;
+      if(!v){
+        const wish=(wishes[s.id]||{})[d]||'none';
+        if(wish==='off')return`<td class="dc" style="background:#FCEBEB;color:#A32D2D;">✕</td>`;
+        if(wish==='want')return`<td class="dc" style="background:#E1F5EE;color:#085041;opacity:0.5;">○</td>`;
+        return`<td class="dc off">―</td>`;
+      }
       const car=(carDailyOverride[s.id]||{})[d]!==undefined?(carDailyOverride[s.id]||{})[d]:s.carNo;
       const pDupS=car&&printDupCar[d]?.has(car);
       const carLabel=car?(pDupS?`<span style="color:#c0392b;font-weight:bold">${circledNum(car)}</span>`:circledNum(car)):'';
