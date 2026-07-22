@@ -2093,7 +2093,12 @@ function applyLocEdit(locId,day,newVal){
   } else {
     // 通常スタッフ：既存の主担当を置き換え
     const prevSid=lastAssignments[locId][day];
-    if(prevSid&&prevSid>0&&lastSchedule[prevSid])delete lastSchedule[prevSid][day];
+    if(prevSid&&prevSid>0&&lastSchedule[prevSid]){
+      // prevSidのlastScheduleがこの場所を指している場合のみ削除
+      if(lastSchedule[prevSid][day]===locName){
+        delete lastSchedule[prevSid][day];
+      }
+    }
     lastAssignments[locId][day]=resolved;
     if(resolved&&resolved>0){
       if(!lastSchedule[resolved])lastSchedule[resolved]={};
@@ -2103,7 +2108,11 @@ function applyLocEdit(locId,day,newVal){
     // 出店なし(-1)またはクリアの場合、研修中スタッフも全解除
     if(!resolved||resolved===-1){
       const tArr=traineeAssignments[locId][day]||[];
-      tArr.forEach(tid=>{if(lastSchedule[tid])delete lastSchedule[tid][day];});
+      tArr.forEach(tid=>{
+        if(lastSchedule[tid]&&lastSchedule[tid][day]===locName){
+          delete lastSchedule[tid][day];
+        }
+      });
       traineeAssignments[locId][day]=[];
     }
   }
@@ -2211,11 +2220,12 @@ function applyStaffEdit(sid,day,locName){
         }
         lastSchedule[sid][day]=locName;
       } else {
-        // 通常：step2 既存担当を解除
+        // 通常：step2 既存担当を解除（この場所を担当している場合のみ）
         const prevSidAtLoc=lastAssignments[newLoc.id][day];
-        if(prevSidAtLoc&&prevSidAtLoc>0){
-          if(!lastSchedule[prevSidAtLoc])lastSchedule[prevSidAtLoc]={};
-          delete lastSchedule[prevSidAtLoc][day];
+        if(prevSidAtLoc&&prevSidAtLoc>0&&lastSchedule[prevSidAtLoc]){
+          if(lastSchedule[prevSidAtLoc][day]===locName){
+            delete lastSchedule[prevSidAtLoc][day];
+          }
         }
         // step3: 双方向に割り当て
         lastAssignments[newLoc.id][day]=sid;
