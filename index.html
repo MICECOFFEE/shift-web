@@ -355,6 +355,7 @@ table.sg{border-collapse:collapse;table-layout:fixed;}
       <div class="card">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
           <div class="sec-title" style="margin-bottom:0;">📁 過去のシフト閲覧</div>
+          <button class="btn btn-outline btn-sm" onclick="exportPastShiftCSV()">📥 CSVで保存</button>
         </div>
         <label style="font-size:12px;color:#666;display:block;margin-bottom:6px;">アーカイブされた月を選択</label>
         <select id="past-month-select" onchange="displayPastShift(this.value)">
@@ -363,8 +364,7 @@ table.sg{border-collapse:collapse;table-layout:fixed;}
         <div id="past-shift-display">
           <p class="muted" style="text-align:center;padding:20px;">月を選択するとシフトが表示されます</p>
         </div>
-        <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
-          <button class="btn btn-outline btn-sm" onclick="exportPastShiftCSV()">📥 CSVで保存</button>
+        <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
           <button class="btn btn-sm" style="background:#0B8043;color:white;border-color:#0B8043;" onclick="reArchiveCurrentShift()">🔄 現在のシフトで上書き保存</button>
         </div>
         <div id="re-archive-msg" style="display:none;margin-top:8px;font-size:12px;"></div>
@@ -1892,6 +1892,7 @@ function renderResult(keepScroll){
       <button class="btn btn-outline" onclick="dlShiftCSV()">シフト表をCSV書き出し</button>
       <button class="btn btn-teal" onclick="printShift()">印刷</button>
       <button class="btn" style="background:#0B8043;color:white;border-color:#0B8043;" onclick="downloadICS()">📅 Googleカレンダー用ICS出力</button>
+      <button class="btn" style="background:#5C3D2E;color:white;border-color:#5C3D2E;" onclick="reArchiveCurrentShiftAuto()">💾 アーカイブに上書き保存</button>
       <button class="btn" style="background:#1565C0;color:white;border-color:#1565C0;" onclick="shareShiftToCoffeeApp()">☕ コーヒー管理に共有</button>
       <button class="btn" onclick="document.getElementById('shift-upload-area').style.display=document.getElementById('shift-upload-area').style.display==='none'?'block':'none'">CSVアップロード</button>
     </div>
@@ -3957,6 +3958,41 @@ async function displayPastShift(month){
   }catch(e){
     area.innerHTML='<p style="color:red;text-align:center;padding:20px;">読み込みエラー</p>';
     console.error(e);
+  }
+}
+
+/* --- シフト表タブから同年同月アーカイブに自動上書き --- */
+async function reArchiveCurrentShiftAuto(){
+  if(!lastSchedule||!lastMonthInfo){
+    alert('シフトが生成されていません。先にシフトを生成してください。');
+    return;
+  }
+  if(!window._archiveToFirestore){alert('Firebase未接続');return;}
+
+  const{y,m}=lastMonthInfo;
+  const archiveKey=`${y}-${String(m).padStart(2,'0')}`;
+
+  if(!confirm(`${y}年${m}月のアーカイブを現在のシフトで上書き保存します。よろしいですか？`))return;
+
+  try{
+    await window._archiveToFirestore(archiveKey,{
+      archivedAt:new Date().toISOString(),
+      month:archiveKey,
+      wishes:JSON.parse(JSON.stringify(wishes||{})),
+      lastSchedule:JSON.parse(JSON.stringify(lastSchedule||{})),
+      lastAssignments:JSON.parse(JSON.stringify(lastAssignments||{})),
+      lastLocDates:JSON.parse(JSON.stringify(lastLocDates||{})),
+      lastMonthInfo:JSON.parse(JSON.stringify(lastMonthInfo||{})),
+      staff:JSON.parse(JSON.stringify(staff)),
+      locs:JSON.parse(JSON.stringify(locs)),
+      carDailyOverride:JSON.parse(JSON.stringify(carDailyOverride||{})),
+      traineeAssignments:JSON.parse(JSON.stringify(traineeAssignments||{})),
+      locSections:JSON.parse(JSON.stringify(locSections||{})),
+    });
+    showEditMsg(`✅ ${y}年${m}月のアーカイブを上書き保存しました`);
+  }catch(err){
+    console.error('アーカイブ上書きエラー:',err);
+    alert('保存エラー: '+err.message);
   }
 }
 
