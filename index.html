@@ -3921,6 +3921,7 @@ async function displayPastShift(month){
     const staff_=data.staff||[];
     const assignments=data.lastAssignments||{};
     const locDates=data.lastLocDates||{};
+    const traineeAsgn=data.traineeAssignments||{};
     const info=data.lastMonthInfo||{};
 
     if(!info.days){area.innerHTML='<p class="muted" style="text-align:center;padding:20px;">シフトデータがありません</p>';return;}
@@ -3947,9 +3948,22 @@ async function displayPastShift(month){
         if(!ldl.includes(d)){html+=`<td style="color:#ccc;">―</td>`;continue;}
         const sid=(assignments[l.id]||{})[d];
         if(sid===-1){html+=`<td style="color:#ccc;">―</td>`;continue;}
-        if(!sid){html+=`<td style="background:#FAEEDA;color:#633806;font-size:10px;">未</td>`;continue;}
+        // 研修者（traineeAssignments）
+        const tArr=((traineeAsgn[l.id]||{})[d]||[]).filter(tid=>tid!==sid);
+        const tS=tArr.length>0?staff_.find(x=>x.id===tArr[0]):null;
+        if(!sid){
+          // 研修者のみの場合
+          if(tS){
+            html+=`<td style="background:#E1F5EE;color:#6B21A8;font-size:10px;">🔰${tS.abbr||tS.name.slice(0,2)}</td>`;
+          } else {
+            html+=`<td style="background:#FAEEDA;color:#633806;font-size:10px;">未</td>`;
+          }
+          continue;
+        }
         const s=staff_.find(x=>x.id===sid);
-        html+=`<td style="background:#E1F5EE;color:#085041;font-size:10px;">${s?s.abbr||s.name.slice(0,2):'?'}</td>`;
+        const mainLabel=s?s.abbr||s.name.slice(0,2):'?';
+        const tLabel=tS?`<span style="font-size:8px;color:#6B21A8;">+🔰${tS.abbr||tS.name.slice(0,2)}</span>`:'';
+        html+=`<td style="background:#E1F5EE;color:#085041;font-size:10px;">${mainLabel}${tLabel}</td>`;
       }
       html+=`<td style="font-weight:500;">${cnt}</td></tr>`;
     });
