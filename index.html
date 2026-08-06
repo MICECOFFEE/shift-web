@@ -365,7 +365,9 @@ table.sg{border-collapse:collapse;table-layout:fixed;}
         </div>
         <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
           <button class="btn btn-outline btn-sm" onclick="exportPastShiftCSV()">📥 CSVで保存</button>
+          <button class="btn btn-sm" style="background:#0B8043;color:white;border-color:#0B8043;" onclick="reArchiveCurrentShift()">🔄 現在のシフトで上書き保存</button>
         </div>
+        <div id="re-archive-msg" style="display:none;margin-top:8px;font-size:12px;"></div>
       </div>
     </div>
 
@@ -3955,6 +3957,63 @@ async function displayPastShift(month){
   }catch(e){
     area.innerHTML='<p style="color:red;text-align:center;padding:20px;">読み込みエラー</p>';
     console.error(e);
+  }
+}
+
+/* --- 現在のシフトで過去アーカイブを上書き --- */
+async function reArchiveCurrentShift(){
+  const sel=document.getElementById('past-month-select');
+  const archiveKey=sel?.value;
+  if(!archiveKey){alert('上書きする月を選択してください');return;}
+
+  // 現在のシフトの月と一致するか確認
+  const curKey=document.getElementById('tmonth')?.value;
+  if(!lastSchedule||!lastMonthInfo){
+    alert('現在のシフトが生成されていません。\nシフト表タブでシフトを生成してから実行してください。');
+    return;
+  }
+
+  const msgEl=document.getElementById('re-archive-msg');
+  const{y,m}=lastMonthInfo;
+  const curMonthKey=`${y}-${String(m).padStart(2,'0')}`;
+
+  if(curMonthKey!==archiveKey){
+    if(!confirm(`選択中のアーカイブ（${archiveKey}）と現在のシフト（${curMonthKey}）の月が異なります。\nそれでも上書きしますか？`))return;
+  } else {
+    if(!confirm(`${archiveKey} のアーカイブを現在のシフトで上書きします。よろしいですか？`))return;
+  }
+
+  if(!window._archiveToFirestore){alert('Firebase未接続');return;}
+
+  try{
+    msgEl.style.display='block';
+    msgEl.style.color='#666';
+    msgEl.textContent='上書き保存中...';
+
+    await window._archiveToFirestore(archiveKey,{
+      archivedAt:new Date().toISOString(),
+      month:archiveKey,
+      wishes:JSON.parse(JSON.stringify(wishes||{})),
+      lastSchedule:JSON.parse(JSON.stringify(lastSchedule||{})),
+      lastAssignments:JSON.parse(JSON.stringify(lastAssignments||{})),
+      lastLocDates:JSON.parse(JSON.stringify(lastLocDates||{})),
+      lastMonthInfo:JSON.parse(JSON.stringify(lastMonthInfo||{})),
+      staff:JSON.parse(JSON.stringify(staff)),
+      locs:JSON.parse(JSON.stringify(locs)),
+      carDailyOverride:JSON.parse(JSON.stringify(carDailyOverride||{})),
+      traineeAssignments:JSON.parse(JSON.stringify(traineeAssignments||{})),
+      locSections:JSON.parse(JSON.stringify(locSections||{})),
+    });
+
+    msgEl.style.color='#0B8043';
+    msgEl.textContent=`✅ ${archiveKey} のアーカイブを上書き保存しました（${new Date().toLocaleString('ja-JP')}）`;
+
+    // 表示を更新
+    displayPastShift(archiveKey);
+  }catch(err){
+    console.error('再アーカイブエラー:',err);
+    msgEl.style.color='#c0392b';
+    msgEl.textContent='⚠️ 保存エラー: '+err.message;
   }
 }
 
