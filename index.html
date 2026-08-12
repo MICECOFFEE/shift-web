@@ -1271,6 +1271,10 @@ function go(name){
   if(name==='priority')renderPriority();
   if(name==='wishes')renderWishes();
   if(name==='result'||name==='overview'){
+    // シフト表タブの対象月セレクタを同期
+    const tms=document.getElementById('tmonth-shift');
+    const tmm=document.getElementById('tmonth');
+    if(tms&&tmm)tms.value=tmm.value;
     if(!lastLocDates)lastLocDates={};
     if(!lastAssignments)lastAssignments={};
     locs.forEach(l=>{
@@ -1524,6 +1528,16 @@ function syncNameColWidth(){
   // colgroup方式で全テーブルの幅を統一済みのため、DOM操作は不要
 }
 /* ===== 場所別・スタッフ別の並べ替え ===== */
+/* 対象月変更（シフト表タブ上部セレクタ） */
+function onShiftMonthChange(val){
+  const tmonthMain=document.getElementById('tmonth');
+  if(tmonthMain){tmonthMain.value=val;saveAll();}
+  // 候補日・希望休・シフト表を再描画
+  renderCandidates();
+  renderWishes();
+  if(lastSchedule)renderResult(true);
+}
+
 function sortLocs(mode){
   if(mode==='name'){
     locs.sort((a,b)=>a.name.localeCompare(b.name,'ja'));
@@ -1632,6 +1646,10 @@ function restoreScrollPos(pos){
 }
 
 function renderResult(keepScroll){
+  // シフト表タブの対象月セレクタを本体tmonthと同期
+  const tmonthMain=document.getElementById('tmonth');
+  const tmonthShift=document.getElementById('tmonth-shift');
+  if(tmonthMain&&tmonthShift)tmonthShift.value=tmonthMain.value;
   if(!lastSchedule||!lastMonthInfo)return;
   const pos=keepScroll?saveScrollPos():null;
 
@@ -1885,7 +1903,11 @@ function renderResult(keepScroll){
       <div class="metric"><div class="metric-label">未割当</div><div class="metric-val" style="color:${warnings.length?'#A32D2D':'#0F6E56'};">${warnings.length}件</div></div>
       <div class="metric"><div class="metric-label">月間総出店</div><div class="metric-val">${totalLocDays}日</div></div>
     </div>
-    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center;">
+      <div style="display:flex;align-items:center;gap:6px;background:#EEEDFE;padding:5px 12px;border-radius:8px;">
+        <span style="font-size:12px;color:#534AB7;font-weight:600;">対象月</span>
+        <input type="month" id="tmonth-shift" style="border:none;background:transparent;font-size:13px;font-weight:700;color:#534AB7;cursor:pointer;outline:none;" onchange="onShiftMonthChange(this.value)"/>
+      </div>
       <button class="btn btn-primary" onclick="generate()">再生成</button>
       ${backupSchedule?`<button class="btn btn-amber" onclick="restoreBackup()">再生成前に戻す</button>`:''}
       <button class="btn btn-green" onclick="downloadViewer()">閲覧用HTMLを出力</button>
