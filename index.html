@@ -1535,17 +1535,18 @@ function syncNameColWidth(){
 function onShiftMonthChange(val){
   const tmonthMain=document.getElementById('tmonth');
   if(tmonthMain){tmonthMain.value=val;saveAll();}
+  // 月が変わったらシフトデータをリセット（別月のデータを表示しないため）
+  lastSchedule=null;lastAssignments=null;lastLocDates=null;lastMonthInfo=null;
+  traineeAssignments={};locSections={};
+  backupSchedule=null;backupAssignments=null;backupLocDates=null;backupMonthInfo=null;
   // 候補日・希望休を再描画
   renderCandidates();
   renderWishes();
-  // シフト表が生成済みなら再描画、未生成なら月表示をリセット
-  if(lastSchedule&&lastMonthInfo){
-    renderResult(true);
-  } else {
-    // 未生成時はresult-areaを初期状態に
-    const ra=document.getElementById('result-area');
-    if(ra)ra.innerHTML='<div style="text-align:center;padding:3rem;color:#888;"><p style="margin-bottom:1rem;">設定が完了したらシフトを自動生成できます</p><button class="btn btn-primary" onclick="generate()">シフトを自動生成</button></div>';
-  }
+  // result-areaを初期状態に戻す
+  const ra=document.getElementById('result-area');
+  if(ra)ra.innerHTML='<div style="text-align:center;padding:3rem;color:#888;"><p style="margin-bottom:1rem;">設定が完了したらシフトを自動生成できます</p><button class="btn btn-primary" onclick="generate()">シフトを自動生成</button></div>';
+  // 月表示を更新
+  saveAll();
 }
 
 function sortLocs(mode){
