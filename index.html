@@ -330,7 +330,10 @@ table.sg{border-collapse:collapse;table-layout:fixed;}
     <!-- シフト表 -->
     <div id="p-result" class="panel">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-        <span></span>
+        <div style="display:flex;align-items:center;gap:6px;background:#EEEDFE;padding:5px 12px;border-radius:8px;">
+          <span style="font-size:12px;color:#534AB7;font-weight:600;">対象月</span>
+          <input type="month" id="tmonth-shift" style="border:none;background:transparent;font-size:13px;font-weight:700;color:#534AB7;cursor:pointer;outline:none;" onchange="onShiftMonthChange(this.value)"/>
+        </div>
         <button class="section-reset-btn" onclick="resetShiftTable()">🗑 シフト表リセット</button>
       </div>
       <div id="result-area">
@@ -1532,10 +1535,17 @@ function syncNameColWidth(){
 function onShiftMonthChange(val){
   const tmonthMain=document.getElementById('tmonth');
   if(tmonthMain){tmonthMain.value=val;saveAll();}
-  // 候補日・希望休・シフト表を再描画
+  // 候補日・希望休を再描画
   renderCandidates();
   renderWishes();
-  if(lastSchedule)renderResult(true);
+  // シフト表が生成済みなら再描画、未生成なら月表示をリセット
+  if(lastSchedule&&lastMonthInfo){
+    renderResult(true);
+  } else {
+    // 未生成時はresult-areaを初期状態に
+    const ra=document.getElementById('result-area');
+    if(ra)ra.innerHTML='<div style="text-align:center;padding:3rem;color:#888;"><p style="margin-bottom:1rem;">設定が完了したらシフトを自動生成できます</p><button class="btn btn-primary" onclick="generate()">シフトを自動生成</button></div>';
+  }
 }
 
 function sortLocs(mode){
@@ -1646,10 +1656,6 @@ function restoreScrollPos(pos){
 }
 
 function renderResult(keepScroll){
-  // シフト表タブの対象月セレクタを本体tmonthと同期
-  const tmonthMain=document.getElementById('tmonth');
-  const tmonthShift=document.getElementById('tmonth-shift');
-  if(tmonthMain&&tmonthShift)tmonthShift.value=tmonthMain.value;
   if(!lastSchedule||!lastMonthInfo)return;
   const pos=keepScroll?saveScrollPos():null;
 
@@ -1904,10 +1910,6 @@ function renderResult(keepScroll){
       <div class="metric"><div class="metric-label">月間総出店</div><div class="metric-val">${totalLocDays}日</div></div>
     </div>
     <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center;">
-      <div style="display:flex;align-items:center;gap:6px;background:#EEEDFE;padding:5px 12px;border-radius:8px;">
-        <span style="font-size:12px;color:#534AB7;font-weight:600;">対象月</span>
-        <input type="month" id="tmonth-shift" style="border:none;background:transparent;font-size:13px;font-weight:700;color:#534AB7;cursor:pointer;outline:none;" onchange="onShiftMonthChange(this.value)"/>
-      </div>
       <button class="btn btn-primary" onclick="generate()">再生成</button>
       ${backupSchedule?`<button class="btn btn-amber" onclick="restoreBackup()">再生成前に戻す</button>`:''}
       <button class="btn btn-green" onclick="downloadViewer()">閲覧用HTMLを出力</button>
@@ -3846,6 +3848,15 @@ window.normalizeData = normalizeData;
 window.renderStaff = renderStaff;
 window.renderLocs = renderLocs;
 window.go = go;
+
+// ページロード時にtmonth-shiftをtmonthと同期
+document.addEventListener('DOMContentLoaded',()=>{
+  const tmm=document.getElementById('tmonth');
+  const tms=document.getElementById('tmonth-shift');
+  if(tmm&&tms)tms.value=tmm.value;
+  // tmonthの変更を監視してtmonth-shiftにも反映
+  if(tmm)tmm.addEventListener('change',()=>{if(tms)tms.value=tmm.value;});
+});
 
 /* ============================================================
    月次更新・過去シフト閲覧・リセット・ポスター作成
