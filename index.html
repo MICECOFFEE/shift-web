@@ -2254,6 +2254,8 @@ function applyStaffEdit(sid,day,locName){
 function restoreBackup(){
   if(!backupSchedule){alert('バックアップがありません');return;}
   if(!confirm('再生成前の編集内容に戻します。現在のシフト表は失われます。よろしいですか？'))return;
+  // 現在のtmonth（対象月）を保持（月は変えない）
+  const currentTmonth=document.getElementById('tmonth').value;
   // 現在をバックアップの逆方向に退避（戻した後にまた戻せるよう）
   const tmpS=JSON.parse(JSON.stringify(lastSchedule));
   const tmpA=JSON.parse(JSON.stringify(lastAssignments));
@@ -2267,9 +2269,17 @@ function restoreBackup(){
   backupAssignments=tmpA;
   backupLocDates=tmpL;
   backupMonthInfo=tmpM;
-  // 対象月表示を合わせる
+  // 対象月はバックアップの月ではなく現在の月を維持
+  // （月次更新後に別月に戻ってしまうのを防ぐ）
   if(lastMonthInfo){
-    document.getElementById('tmonth').value=`${lastMonthInfo.y}-${String(lastMonthInfo.m).padStart(2,'0')}`;
+    const bmonth=`${lastMonthInfo.y}-${String(lastMonthInfo.m).padStart(2,'0')}`;
+    // バックアップの月が現在と異なる場合は現在の月を優先
+    if(bmonth!==currentTmonth){
+      document.getElementById('tmonth').value=currentTmonth;
+      // lastMonthInfoも現在の月に合わせて再計算
+      const{days,y,m,key}=getMonthInfo();
+      lastMonthInfo={days,y,m,key};
+    }
   }
   saveAll();
   renderResult();
