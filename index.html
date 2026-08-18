@@ -1490,8 +1490,20 @@ function generate(){
   const locDates={};
   locs.forEach(l=>{
     const cs=getEffectiveDates(l.id,key); // 除外日を除いた実効候補日
-    if(cs.length){locDates[l.id]=cs;}
-    else{locDates[l.id]=[];for(let d=1;d<=days;d++){if(l.days.includes(new Date(y,m-1,d).getDay()))locDates[l.id].push(d);}}
+    if(cs.length){
+      locDates[l.id]=cs;
+    } else {
+      // getCands で候補日が登録されているか確認
+      const cands=getCands(l.id,key);
+      if(cands.length>0){
+        // 候補日は登録されているが全て除外 → 出店なし
+        locDates[l.id]=[];
+      } else {
+        // 候補日未登録 → デフォルト曜日から生成
+        locDates[l.id]=[];
+        for(let d=1;d<=days;d++){if(l.days.includes(new Date(y,m-1,d).getDay()))locDates[l.id].push(d);}
+      }
+    }
   });
   const assignments={};locs.forEach(l=>{assignments[l.id]={};});
   for(let d=1;d<=days;d++){
