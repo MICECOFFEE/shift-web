@@ -2138,10 +2138,8 @@ function applyLocEdit(locId,day,newVal){
     // 通常スタッフ：既存の主担当を置き換え
     const prevSid=lastAssignments[locId][day];
     if(prevSid&&prevSid>0&&lastSchedule[prevSid]){
-      // prevSidのlastScheduleがこの場所を指している場合のみ削除
-      if(lastSchedule[prevSid][day]===locName){
-        delete lastSchedule[prevSid][day];
-      }
+      // lastScheduleからこのスタッフのこの日のエントリを削除
+      delete lastSchedule[prevSid][day];
     }
     lastAssignments[locId][day]=resolved;
     if(resolved&&resolved>0){
@@ -2264,10 +2262,11 @@ function applyStaffEdit(sid,day,locName){
         }
         lastSchedule[sid][day]=locName;
       } else {
-        // 通常：step2 既存担当を解除（この場所を担当している場合のみ）
+        // 通常：step2 既存担当を解除（lastAssignmentsとlastSchedule両方を確実に更新）
         const prevSidAtLoc=lastAssignments[newLoc.id][day];
-        if(prevSidAtLoc&&prevSidAtLoc>0&&lastSchedule[prevSidAtLoc]){
-          if(lastSchedule[prevSidAtLoc][day]===locName){
+        if(prevSidAtLoc&&prevSidAtLoc>0){
+          // lastScheduleが存在する場合のみ削除（場所名チェックは行わない→確実に解除）
+          if(lastSchedule[prevSidAtLoc]){
             delete lastSchedule[prevSidAtLoc][day];
           }
         }
