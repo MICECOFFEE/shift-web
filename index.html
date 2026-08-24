@@ -3584,10 +3584,13 @@ function showTab(t){
 function af(){const v=document.getElementById('vm').value,sid=sf.value,lid=lf.value;document.getElementById('tv').style.display=v==='table'?'block':'none';document.getElementById('lv').style.display=v==='list'?'block':'none';v==='table'?rt(sid,lid):rl(sid,lid);}
 function hd(){return'<thead><tr><th style="text-align:left;min-width:100px;position:sticky;top:0;left:0;z-index:3;background:#f5f5f0;">名前/場所</th>'+Array.from({length:days},(_,i)=>{const d=i+1,dw=DOW[new Date(y,m-1,d).getDay()];return'<th style="position:sticky;top:0;z-index:2;background:#f5f5f0;" class="'+(dw==='日'||dw==='土'?'dh':'')+'">' +d+'<br><span style="font-size:9px;">'+dw+'</span></th>';}).join('')+'</tr></thead>';}
 function cellLoc(d,l){
-  if(!(ld[l.id]||[]).includes(d))return'<td class="ch">―</td>';
   const aid=as[l.id]?.[d];
+  // lastAssignmentsにキー自体がない（undefined）→ 出店対象外
+  if(aid===undefined)return'<td class="ch">―</td>';
+  // 明示的に出店なし(-1)
   if(aid===-1)return'<td class="ch">―</td>';
-  if(!aid||aid===null)return'<td class="cu">未</td>';
+  // nullの場合(候補日だが未割当) → 「未」
+  if(aid===null)return'<td class="cu">未</td>';
   const s=staff.find(x=>x.id===aid);
   const car=(co[s?.id]||{})[d]!==undefined?(co[s?.id]||{})[d]:s?.carNo;
   const carLabel=car?circledNum(car):'';
