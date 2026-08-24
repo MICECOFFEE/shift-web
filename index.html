@@ -182,7 +182,7 @@ table.sg{border-collapse:collapse;table-layout:fixed;}
 
 <div id="app-body" style="display:none;">
 <header>
-  <h1>移動販売シフト管理 <span style="font-size:12px;opacity:0.75;font-weight:400;">v3.2026.0824</span></h1>
+  <h1>移動販売シフト管理 <span style="font-size:12px;opacity:0.75;font-weight:400;">v3.2026.0825</span></h1>
   <span class="save-badge" id="save-badge">保存しました</span>
   <button class="btn btn-sm" style="background:#1D9E75;color:white;border-color:#1D9E75;" onclick="exportJSON()" title="全データをJSONファイルに書き出します">全データ保存</button>
   <button class="btn btn-sm" style="background:#BA7517;color:white;border-color:#BA7517;" onclick="document.getElementById('import-json-file').click()" title="JSONファイルからデータを復元します">全データ復元</button>
@@ -3565,7 +3565,7 @@ function downloadViewer(){
 <div id="tab-car" style="display:none;"><div class="card"><div class="ct">号車別場所割当表</div><div class="tw"><table id="ct"></table></div></div></div>
 <div id="tab-cal" style="display:none;"><div class="card"><div id="legend-area" class="legend"></div><div class="cal-grid" id="cal-grid"></div></div></div>
 </div>
-<footer>閲覧専用シフト表 ${ml} <span style="opacity:0.5;font-size:10px;">| app v3.2026.0824</span></footer>
+<footer>閲覧専用シフト表 ${ml} <span style="opacity:0.5;font-size:10px;">| app v3.2026.0825</span></footer>
 <script>
 const staff=${sj},locs=${lj},ld=${JSON.stringify(effectiveLd)},as=${JSON.stringify(lastAssignments)},sc=${JSON.stringify(lastSchedule)},co=${coj},sec=${secj},days=${days},y=${y},m=${m};
 const circledNum=n=>['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩','⑪','⑫'][n-1]||String(n);
