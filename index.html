@@ -182,7 +182,7 @@ table.sg{border-collapse:collapse;table-layout:fixed;}
 
 <div id="app-body" style="display:none;">
 <header>
-  <h1>移動販売シフト管理 <span style="font-size:12px;opacity:0.75;font-weight:400;">v3.2026.0828</span></h1>
+  <h1>移動販売シフト管理 <span style="font-size:12px;opacity:0.75;font-weight:400;">v3.2026.0829</span></h1>
   <span class="save-badge" id="save-badge">保存しました</span>
   <button class="btn btn-sm" style="background:#1D9E75;color:white;border-color:#1D9E75;" onclick="exportJSON()" title="全データをJSONファイルに書き出します">全データ保存</button>
   <button class="btn btn-sm" style="background:#BA7517;color:white;border-color:#BA7517;" onclick="document.getElementById('import-json-file').click()" title="JSONファイルからデータを復元します">全データ復元</button>
@@ -1700,7 +1700,7 @@ function renderResult(keepScroll){
     if(sid===null||sid===undefined)warnings.push(`${d}日 ${l.name}`);
   }));
 
-  // 不整合を自動修正（renderResult呼び出し時に常に同期）
+  // 不整合を自動修正（編集のたびに同期）
   syncAssignments(schedule,assignments,days);
   const avg=staff.length?(staff.reduce((a,s)=>a+Object.values(schedule[s.id]||{}).filter(v=>v).length,0)/staff.length).toFixed(1):'0';
 
@@ -1937,6 +1937,7 @@ function renderResult(keepScroll){
       <button class="btn btn-teal" onclick="printShift()">印刷</button>
       <button class="btn" style="background:#0B8043;color:white;border-color:#0B8043;" onclick="downloadICS()">📅 Googleカレンダー用ICS出力</button>
       <button class="btn" style="background:#5C3D2E;color:white;border-color:#5C3D2E;" onclick="reArchiveCurrentShiftAuto()">💾 アーカイブに上書き保存</button>
+      <button class="btn" style="background:#991B1B;color:white;border-color:#991B1B;" onclick="finalCheck()">🔍 最終チェック</button>
       <button class="btn" style="background:#1565C0;color:white;border-color:#1565C0;" onclick="shareShiftToCoffeeApp()">☕ コーヒー管理に共有</button>
       <button class="btn" onclick="document.getElementById('shift-upload-area').style.display=document.getElementById('shift-upload-area').style.display==='none'?'block':'none'">CSVアップロード</button>
     </div>
@@ -2013,6 +2014,90 @@ function renderResult(keepScroll){
     requestAnimationFrame(()=>{restoreScrollPos(pos);setupScrollSync();});
   }else{
     requestAnimationFrame(()=>setupScrollSync());
+  }
+}
+
+/* ===== 最終チェック ===== */
+function finalCheck(){
+  if(!lastSchedule||!lastMonthInfo){alert('先にシフトを生成してください');return;}
+  const{days}=lastMonthInfo;
+  const schedule=lastSchedule||{};
+  const assignments=lastAssignments||{};
+  const issues=[];
+
+  // ① スタッフ別→場所別の不整合
+  staff.forEach(s=>{
+    for(let d=1;d<=days;d++){
+      const locName=(schedule[s.id]||{})[d];
+      if(!locName)continue;
+      const loc=locs.find(l=>l.name===locName);
+      if(!loc)continue;
+      const isTrainee=getRoleOnDay(s,d)==='trainee';
+      if(isTrainee){
+        const tArr=(traineeAssignments[loc.id]||{})[d]||[];
+        if(!tArr.includes(s.id)){
+          issues.push(`【不整合】${d}日 ${locName}：${s.name}がスタッフ別にあるが場所別にない`);
+        }
+      } else {
+        if((assignments[loc.id]||{})[d]!==s.id){
+          issues.push(`【不整合】${d}日 ${locName}：${s.name}がスタッフ別にあるが場所別にない（場所別=${assignments[loc.id]?.[d]||'未'}）`);
+        }
+      }
+    }
+  });
+
+  // ② 場所別→スタッフ別の不整合（場所別にあるのにスタッフ別にない）
+  locs.forEach(l=>{
+    const ldl=(lastLocDates||{})[l.id]||[];
+    ldl.forEach(d=>{
+      const sid=(assignments[l.id]||{})[d];
+      if(!sid||sid<=0)return;
+      const locNameInSched=(schedule[sid]||{})[d];
+      if(locNameInSched!==l.name){
+        issues.push(`【不整合】${d}日 ${l.name}：場所別=${staff.find(x=>x.id===sid)?.name||sid}があるがスタッフ別=${locNameInSched||'なし'}`);
+      }
+    });
+  });
+
+  // ③ 号車別の確認（同日に同じ号車が複数）
+  const carDups=[];
+  for(let d=1;d<=days;d++){
+    const carMap={};
+    staff.forEach(s=>{
+      if(getRoleOnDay(s,d)==='trainee')return;
+      const v=(schedule[s.id]||{})[d];
+      if(!v)return;
+      const car=(carDailyOverride[s.id]||{})[d]!==undefined?(carDailyOverride[s.id]||{})[d]:(s.carNo||null);
+      if(!car)return;
+      if(!carMap[car])carMap[car]=[];
+      carMap[car].push(s.name);
+    });
+    Object.entries(carMap).forEach(([car,names])=>{
+      if(names.length>1)carDups.push(`【号車重複】${d}日 ${circledNum(Number(car))}号車：${names.join('・')}`);
+    });
+  }
+
+  const allIssues=[...issues,...carDups];
+
+  if(allIssues.length===0){
+    alert('✅ チェック完了：不整合・号車重複なし');
+    return;
+  }
+
+  // 不整合があれば修正するか確認
+  const msg=`⚠️ ${allIssues.length}件の問題が見つかりました：\n\n`+
+    allIssues.slice(0,15).join('\n')+
+    (allIssues.length>15?`\n...他${allIssues.length-15}件`:'')+
+    (issues.length>0?'\n\n不整合を自動修正しますか？':'');
+
+  if(issues.length>0){
+    if(confirm(msg)){
+      syncAssignments(schedule,assignments,days);
+      renderResult(true);
+      showEditMsg(`✅ ${issues.length}件の不整合を修正しました`);
+    }
+  } else {
+    alert(msg);
   }
 }
 
@@ -3642,7 +3727,7 @@ function downloadViewer(){
 <div id="tab-car" style="display:none;"><div class="card"><div class="ct">号車別場所割当表</div><div class="tw"><table id="ct"></table></div></div></div>
 <div id="tab-cal" style="display:none;"><div class="card"><div id="legend-area" class="legend"></div><div class="cal-grid" id="cal-grid"></div></div></div>
 </div>
-<footer>閲覧専用シフト表 ${ml}<span class="ver-badge">v3.2026.0828</span></footer>
+<footer>閲覧専用シフト表 ${ml}<span class="ver-badge">v3.2026.0829</span></footer>
 <script>
 const staff=${sj},locs=${lj},ld=${JSON.stringify(effectiveLd)},as=${JSON.stringify(lastAssignments)},sc=${JSON.stringify(lastSchedule)},co=${coj},sec=${secj},days=${days},y=${y},m=${m};
 const circledNum=n=>['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩','⑪','⑫'][n-1]||String(n);
