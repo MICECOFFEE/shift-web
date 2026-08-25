@@ -182,7 +182,7 @@ table.sg{border-collapse:collapse;table-layout:fixed;}
 
 <div id="app-body" style="display:none;">
 <header>
-  <h1>移動販売シフト管理 <span style="font-size:12px;opacity:0.75;font-weight:400;">v3.2026.0829</span></h1>
+  <h1>移動販売シフト管理 <span style="font-size:12px;opacity:0.75;font-weight:400;">v3.2026.0830</span></h1>
   <span class="save-badge" id="save-badge">保存しました</span>
   <button class="btn btn-sm" style="background:#1D9E75;color:white;border-color:#1D9E75;" onclick="exportJSON()" title="全データをJSONファイルに書き出します">全データ保存</button>
   <button class="btn btn-sm" style="background:#BA7517;color:white;border-color:#BA7517;" onclick="document.getElementById('import-json-file').click()" title="JSONファイルからデータを復元します">全データ復元</button>
@@ -1775,9 +1775,15 @@ function renderResult(keepScroll){
       ${cells}
       <td class="col-total" style="font-weight:500;color:#085041;text-align:center;position:sticky;right:0;background:#EEEDFE;">${locTotal}</td></tr>`;
   }).join('');
-  const totalLocDays=locs.reduce((sum,l)=>{
-    return sum+(locDates[l.id]||[]).filter(d=>{const sid=(assignments[l.id]||{})[d];return sid&&sid>0;}).length;
-  },0);
+  // 場所別総出店数：lastAssignmentsで実際に割り当てがある日数をカウント
+  let totalLocDays=0;
+  locs.forEach(l=>{
+    const asgn=assignments[l.id]||{};
+    for(let d=1;d<=days;d++){
+      const sid=asgn[d];
+      if(sid&&sid>0)totalLocDays++;
+    }
+  });
 
   // スタッフ別：略称・色・号車で表示
   const staffRows=staff.map(s=>{
@@ -2075,6 +2081,17 @@ function finalCheck(){
     Object.entries(carMap).forEach(([car,names])=>{
       if(names.length>1)carDups.push(`【号車重複】${d}日 ${circledNum(Number(car))}号車：${names.join('・')}`);
     });
+  }
+
+  // ④ 場所別とスタッフ別の合計日数の差異
+  let locTotal=0;
+  locs.forEach(l=>{
+    const asgn=assignments[l.id]||{};
+    for(let d=1;d<=days;d++){if(asgn[d]&&asgn[d]>0)locTotal++;}
+  });
+  const staffTotal=staff.reduce((sum,s)=>sum+Object.values(schedule[s.id]||{}).filter(v=>v).length,0);
+  if(locTotal!==staffTotal){
+    issues.push(`【合計不一致】場所別合計${locTotal}日 ≠ スタッフ別合計${staffTotal}日（差${Math.abs(locTotal-staffTotal)}日）`);
   }
 
   const allIssues=[...issues,...carDups];
@@ -3727,7 +3744,7 @@ function downloadViewer(){
 <div id="tab-car" style="display:none;"><div class="card"><div class="ct">号車別場所割当表</div><div class="tw"><table id="ct"></table></div></div></div>
 <div id="tab-cal" style="display:none;"><div class="card"><div id="legend-area" class="legend"></div><div class="cal-grid" id="cal-grid"></div></div></div>
 </div>
-<footer>閲覧専用シフト表 ${ml}<span class="ver-badge">v3.2026.0829</span></footer>
+<footer>閲覧専用シフト表 ${ml}<span class="ver-badge">v3.2026.0830</span></footer>
 <script>
 const staff=${sj},locs=${lj},ld=${JSON.stringify(effectiveLd)},as=${JSON.stringify(lastAssignments)},sc=${JSON.stringify(lastSchedule)},co=${coj},sec=${secj},days=${days},y=${y},m=${m};
 const circledNum=n=>['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩','⑪','⑫'][n-1]||String(n);
