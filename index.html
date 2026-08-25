@@ -182,7 +182,7 @@ table.sg{border-collapse:collapse;table-layout:fixed;}
 
 <div id="app-body" style="display:none;">
 <header>
-  <h1>移動販売シフト管理 <span style="font-size:12px;opacity:0.75;font-weight:400;">v3.2026.0827</span></h1>
+  <h1>移動販売シフト管理 <span style="font-size:12px;opacity:0.75;font-weight:400;">v3.2026.0828</span></h1>
   <span class="save-badge" id="save-badge">保存しました</span>
   <button class="btn btn-sm" style="background:#1D9E75;color:white;border-color:#1D9E75;" onclick="exportJSON()" title="全データをJSONファイルに書き出します">全データ保存</button>
   <button class="btn btn-sm" style="background:#BA7517;color:white;border-color:#BA7517;" onclick="document.getElementById('import-json-file').click()" title="JSONファイルからデータを復元します">全データ復元</button>
@@ -1695,34 +1695,13 @@ function renderResult(keepScroll){
   staff.forEach(s=>{if(!schedule[s.id])schedule[s.id]={};});
 
   const warnings=[];
-  const inconsistencies=[]; // スタッフ別と場所別の不整合
   locs.forEach(l=>(locDates[l.id]||[]).forEach(d=>{
     const sid=assignments[l.id][d];
     if(sid===null||sid===undefined)warnings.push(`${d}日 ${l.name}`);
   }));
 
-  // 不整合チェック：スタッフ別に出勤があるのに場所別に反映されていない
-  staff.forEach(s=>{
-    for(let d=1;d<=days;d++){
-      const locName=(schedule[s.id]||{})[d];
-      if(!locName)continue;
-      const loc=locs.find(l=>l.name===locName);
-      if(!loc)continue;
-      const isTrainee=getRoleOnDay(s,d)==='trainee';
-      if(isTrainee){
-        // 研修中はtraineeAssignmentsに入っているか確認
-        const tArr=(traineeAssignments[loc.id]||{})[d]||[];
-        if(!tArr.includes(s.id)){
-          inconsistencies.push(`${d}日 ${locName}（${s.name}）`);
-        }
-      } else {
-        // 通常スタッフはlastAssignmentsに入っているか確認
-        if((assignments[loc.id]||{})[d]!==s.id){
-          inconsistencies.push(`${d}日 ${locName}（${s.name}）`);
-        }
-      }
-    }
-  });
+  // 不整合を自動修正（renderResult呼び出し時に常に同期）
+  syncAssignments(schedule,assignments,days);
   const avg=staff.length?(staff.reduce((a,s)=>a+Object.values(schedule[s.id]||{}).filter(v=>v).length,0)/staff.length).toFixed(1):'0';
 
 
@@ -1981,10 +1960,6 @@ function renderResult(keepScroll){
       </div>
     </div>
     ${warnings.length?`<div class="warn-box">未割当：${warnings.slice(0,5).join('　')}${warnings.length>5?` 他${warnings.length-5}件`:''}</div>`:''}
-    ${inconsistencies.length?`<div class="warn-box" style="background:#FEE2E2;border-color:#FCA5A5;color:#991B1B;">
-      ⚠️ スタッフ別と場所別の不整合 ${inconsistencies.length}件：${inconsistencies.slice(0,5).join('　')}${inconsistencies.length>5?` 他${inconsistencies.length-5}件`:''}
-      <button class="btn btn-sm" style="margin-left:12px;padding:2px 10px;font-size:11px;background:#991B1B;color:white;border:none;border-radius:4px;cursor:pointer;" onclick="fixInconsistencies()">一括修正</button>
-    </div>`:''}
     ${editMsgHtml}
     <div class="card" style="padding:12px;">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
@@ -2039,6 +2014,40 @@ function renderResult(keepScroll){
   }else{
     requestAnimationFrame(()=>setupScrollSync());
   }
+}
+
+/* ===== スタッフ別と場所別の自動同期 ===== */
+function syncAssignments(schedule,assignments,days){
+  let fixed=0;
+  staff.forEach(s=>{
+    for(let d=1;d<=days;d++){
+      const locName=(schedule[s.id]||{})[d];
+      if(!locName)continue;
+      const loc=locs.find(l=>l.name===locName);
+      if(!loc)continue;
+      const isTrainee=getRoleOnDay(s,d)==='trainee';
+      if(isTrainee){
+        if(!traineeAssignments[loc.id])traineeAssignments[loc.id]={};
+        if(!traineeAssignments[loc.id][d])traineeAssignments[loc.id][d]=[];
+        if(!traineeAssignments[loc.id][d].includes(s.id)){
+          traineeAssignments[loc.id][d].push(s.id);
+          fixed++;
+        }
+      } else {
+        if(!assignments[loc.id])assignments[loc.id]={};
+        if(assignments[loc.id][d]!==s.id){
+          assignments[loc.id][d]=s.id;
+          if(!lastLocDates[loc.id])lastLocDates[loc.id]=[];
+          if(!lastLocDates[loc.id].includes(d)){
+            lastLocDates[loc.id].push(d);
+            lastLocDates[loc.id].sort((a,b)=>a-b);
+          }
+          fixed++;
+        }
+      }
+    }
+  });
+  if(fixed>0)saveAll();
 }
 
 /* ===== 不整合の一括修正 ===== */
@@ -3633,7 +3642,7 @@ function downloadViewer(){
 <div id="tab-car" style="display:none;"><div class="card"><div class="ct">号車別場所割当表</div><div class="tw"><table id="ct"></table></div></div></div>
 <div id="tab-cal" style="display:none;"><div class="card"><div id="legend-area" class="legend"></div><div class="cal-grid" id="cal-grid"></div></div></div>
 </div>
-<footer>閲覧専用シフト表 ${ml}<span class="ver-badge">v3.2026.0827</span></footer>
+<footer>閲覧専用シフト表 ${ml}<span class="ver-badge">v3.2026.0828</span></footer>
 <script>
 const staff=${sj},locs=${lj},ld=${JSON.stringify(effectiveLd)},as=${JSON.stringify(lastAssignments)},sc=${JSON.stringify(lastSchedule)},co=${coj},sec=${secj},days=${days},y=${y},m=${m};
 const circledNum=n=>['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩','⑪','⑫'][n-1]||String(n);
