@@ -127,6 +127,12 @@ table.sg{border-collapse:collapse;table-layout:fixed;}
 .archive-modal-btns button{flex:1;padding:10px;border-radius:8px;border:none;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;}
 #archive-modal-cancel{background:#eee;color:#333;}
 #archive-modal-confirm{background:#0F6E56;color:white;}
+#ai-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9000;align-items:center;justify-content:center;padding:20px;}
+#ai-modal.open{display:flex;}
+#ai-modal-inner{background:white;border-radius:14px;padding:24px;max-width:720px;width:100%;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 8px 30px rgba(0,0,0,0.2);}
+#ai-modal-inner h3{color:#534AB7;margin:0 0 12px;font-size:18px;}
+#ai-modal-body{flex:1;overflow-y:auto;font-size:13px;line-height:1.7;white-space:pre-wrap;color:#333;padding:12px;background:#f7f7fb;border-radius:8px;margin-bottom:12px;min-height:120px;}
+#ai-modal-close{background:#534AB7;color:white;border:none;padding:10px 20px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;align-self:flex-end;}
 /* 過去シフトタブ */
 #past-shift-panel{background:white;border-radius:10px;padding:16px 18px;margin-bottom:14px;border:0.5px solid #e5e5e0;}
 #past-month-select{width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;margin-bottom:12px;font-family:inherit;}
@@ -340,6 +346,7 @@ table.sg{border-collapse:collapse;table-layout:fixed;}
         <div style="text-align:center;padding:3rem;color:#888;">
           <p style="margin-bottom:1rem;">設定が完了したらシフトを自動生成できます</p>
           <button class="btn btn-primary" onclick="generate()">シフトを自動生成</button>
+          <button class="btn btn-outline" onclick="aiPropose()" style="margin-left:8px;">🤖 AIに提案させる</button>
         </div>
       </div>
     </div>
@@ -411,6 +418,15 @@ table.sg{border-collapse:collapse;table-layout:fixed;}
       </div>
     </div>
   </div>
+
+  <!-- AI提案モーダル -->
+  <div id="ai-modal">
+    <div id="ai-modal-inner">
+      <h3>🤖 AIによるシフト提案</h3>
+      <div id="ai-modal-body">読み込み中...</div>
+      <button id="ai-modal-close" onclick="closeAiModal()">閉じる</button>
+    </div>
+  </div>
   <div class="nav-row">
     <button class="btn" onclick="prevTab()">← 戻る</button>
     <button class="btn btn-primary" id="nbtn" onclick="nextTab()">次へ →</button>
@@ -424,6 +440,7 @@ const TABS=['staff','locations','candidates','priority','wishes','result','overv
 const DOW=['日','月','火','水','木','金','土'];
 const DOW_MAP={日:0,月:1,火:2,水:3,木:4,金:5,土:6};
 const LS_KEY='shift_app_v1';
+const AI_FUNCTION_URL='https://asia-northeast1-shift-app-920a1.cloudfunctions.net/aiShiftProposal';
 let curTab=0,staff=[],locs=[],priorities={},wishes={},candidates={},nextSid=12,nextLid=1;
 let lastSchedule=null,lastAssignments=null,lastLocDates=null,lastMonthInfo=null,saveTimer=null;
 let traineeAssignments={}; // {locId:{day:[sid,...]}}
@@ -4829,6 +4846,34 @@ onAuthStateChanged(auth, async (user) => {
       const ref = doc(db, 'users', user.uid, 'archives', month);
       const snap = await getDoc(ref);
       return snap.exists() ? snap.data() : null;
+    };
+
+    // AI提案（Claude Cloud Function 呼び出し）
+    window.aiPropose = async () => {
+      const modal=document.getElementById('ai-modal');
+      const body=document.getElementById('ai-modal-body');
+      modal.classList.add('open');
+      body.textContent='🤖 Claudeに問い合わせ中...（最大60秒）';
+      try{
+        const tmonth=document.getElementById('tmonth')?.value||'';
+        const payload={staff,locs,wishes,candidates,priorities,monthInfo:{tmonth}};
+        const res=await fetch(AI_FUNCTION_URL,{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify(payload)
+        });
+        const data=await res.json();
+        if(!res.ok||!data.ok){
+          body.textContent='エラー: '+(data.error||res.statusText);
+          return;
+        }
+        body.textContent=data.text||'(空のレスポンス)';
+      }catch(e){
+        body.textContent='通信エラー: '+e.message;
+      }
+    };
+    window.closeAiModal = () => {
+      document.getElementById('ai-modal').classList.remove('open');
     };
 
   } else {

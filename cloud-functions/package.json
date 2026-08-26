@@ -1,0 +1,13 @@
+{
+  "name": "shift-ai-functions",
+  "description": "Cloud Functions for AI shift proposal (Claude)",
+  "engines": {
+    "node": "20"
+  },
+  "main": "index.js",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.1",
+    "firebase-functions": "^6.0.1"
+  },
+  "private": true
+}
