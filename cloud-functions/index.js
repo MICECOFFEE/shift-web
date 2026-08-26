@@ -1,17 +1,13 @@
 const { onRequest } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
+const admin = require('firebase-admin');
 const Anthropic = require('@anthropic-ai/sdk');
+
+if (!admin.apps.length) admin.initializeApp();
 
 const ANTHROPIC_API_KEY = defineSecret('ANTHROPIC_API_KEY');
 
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-  'Access-Control-Max-Age': '3600',
-};
-
-exports.aiShiftProposal = onRequest(
+exports.aiShiftInstruction = onRequest(
   {
     region: 'asia-northeast1',
     secrets: [ANTHROPIC_API_KEY],
@@ -20,77 +16,127 @@ exports.aiShiftProposal = onRequest(
     cors: true,
   },
   async (req, res) => {
-    Object.entries(CORS_HEADERS).forEach(([k, v]) => res.set(k, v));
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type');
 
     if (req.method === 'OPTIONS') {
       res.status(204).send('');
       return;
     }
     if (req.method !== 'POST') {
-      res.status(405).json({ error: 'Method not allowed' });
+      res.status(405).json({ ok: false, error: 'Method not allowed' });
       return;
     }
 
     try {
-      const { staff, locs, wishes, candidates, priorities, monthInfo, extra } = req.body || {};
+      const { idToken, instruction, shiftData } = req.body || {};
 
-      if (!Array.isArray(staff) || !Array.isArray(locs)) {
-        res.status(400).json({ error: 'staff and locs are required arrays' });
+      if (!idToken) {
+        res.status(401).json({ ok: false, error: 'idToken is required' });
+        return;
+      }
+      try {
+        await admin.auth().verifyIdToken(idToken);
+      } catch (err) {
+        res.status(401).json({ ok: false, error: 'Invalid idToken: ' + err.message });
+        return;
+      }
+
+      if (!instruction || typeof instruction !== 'string') {
+        res.status(400).json({ ok: false, error: 'instruction (string) is required' });
+        return;
+      }
+      if (!shiftData || !Array.isArray(shiftData.staff) || !Array.isArray(shiftData.locs)) {
+        res.status(400).json({ ok: false, error: 'shiftData with staff[] and locs[] is required' });
         return;
       }
 
       const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY.value() });
 
       const systemPrompt = [
-        'あなたは100g COFFEEの月次シフト作成を支援するアシスタントです。',
-        '与えられたスタッフ・出店場所・希望・候補日情報から、当月のシフト割当の提案を日本語で作成してください。',
-        '出力は「割当案」「留意点」「代替案」の3つのセクションに分けて、簡潔かつ実行可能な形式で示してください。',
-        '各スタッフのrole(mgr=マネージャー, full=フル, part=パート, trainee=研修中), maxDays(月最大出勤日数), maxConsec(最大連勤), prefDows/ngDows(希望/NG曜日), carNo(車番号)を考慮してください。',
-        'trainee は単独出勤にせず、mgr/full と組ませてください。',
+        'あなたは100g COFFEEの月次シフトを、ユーザーの自然言語指示に従って部分修正するアシスタントです。',
+        '入力として、現状のシフトデータ（staff, locs, schedule, locDates）とユーザー指示が与えられます。',
+        '出力は必ず以下のJSONオブジェクトのみを返してください。マークダウンコードフェンスや説明文は一切含めないでください。',
+        '',
+        '{',
+        '  "changes": [',
+        '    { "staffId": <number>, "locId": <number>, "day": <1-31 number>, "action": "assign" }',
+        '  ],',
+        '  "explanation": "変更内容の日本語での短い説明"',
+        '}',
+        '',
+        '規則:',
+        '- action は現時点 "assign" のみサポート（指定日・指定場所に指定スタッフを割当。既存割当は上書き）。',
+        '- 該当する変更が無い、または指示が曖昧すぎる場合は changes を空配列にし、explanation で理由を返す。',
+        '- staffId と locId は入力に存在するIDのみを使うこと。存在しないIDは絶対に作らない。',
+        '- day は 1〜31 の整数。month の日数を超えないこと。',
       ].join('\n');
 
-      const contextJson = JSON.stringify(
-        { monthInfo, staff, locs, wishes, candidates, priorities },
-        null,
-        2
-      );
-
       const userPrompt = [
-        '以下が現在のシフト設定データです。',
+        '# 現状のシフトデータ',
         '```json',
-        contextJson,
+        JSON.stringify(shiftData, null, 2),
         '```',
         '',
-        extra ? `追加指示: ${extra}` : '',
-        '上記データに基づいてシフト割当案を提案してください。',
-      ]
-        .filter(Boolean)
-        .join('\n');
+        '# ユーザー指示',
+        instruction,
+        '',
+        '上記データに対する差分変更をJSONで返してください。',
+      ].join('\n');
 
       const response = await client.messages.create({
         model: 'claude-sonnet-4-5-20250929',
-        max_tokens: 4096,
+        max_tokens: 2048,
         system: systemPrompt,
         messages: [{ role: 'user', content: userPrompt }],
       });
 
-      const text = response.content
+      const rawText = response.content
         .filter((b) => b.type === 'text')
         .map((b) => b.text)
-        .join('\n');
+        .join('\n')
+        .trim();
+
+      let parsed;
+      try {
+        const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+        const jsonStr = jsonMatch ? jsonMatch[0] : rawText;
+        parsed = JSON.parse(jsonStr);
+      } catch (err) {
+        console.error('Failed to parse Claude response as JSON:', rawText);
+        res.status(200).json({
+          ok: false,
+          error: 'AIレスポンスをJSONとして解析できませんでした',
+          raw: rawText,
+        });
+        return;
+      }
+
+      const changes = Array.isArray(parsed.changes) ? parsed.changes : [];
+      const validStaffIds = new Set(shiftData.staff.map((s) => s.id));
+      const validLocIds = new Set(shiftData.locs.map((l) => l.id));
+      const filteredChanges = changes.filter(
+        (c) =>
+          typeof c.staffId === 'number' &&
+          typeof c.locId === 'number' &&
+          typeof c.day === 'number' &&
+          validStaffIds.has(c.staffId) &&
+          validLocIds.has(c.locId) &&
+          c.day >= 1 &&
+          c.day <= 31 &&
+          (c.action || 'assign') === 'assign'
+      ).map((c) => ({ ...c, action: 'assign' }));
 
       res.status(200).json({
         ok: true,
-        text,
+        changes: filteredChanges,
+        explanation: typeof parsed.explanation === 'string' ? parsed.explanation : '',
         usage: response.usage,
-        model: response.model,
       });
     } catch (err) {
-      console.error('aiShiftProposal error:', err);
-      res.status(500).json({
-        ok: false,
-        error: err.message || String(err),
-      });
+      console.error('aiShiftInstruction error:', err);
+      res.status(500).json({ ok: false, error: err.message || String(err) });
     }
   }
 );
