@@ -127,12 +127,6 @@ table.sg{border-collapse:collapse;table-layout:fixed;}
 .archive-modal-btns button{flex:1;padding:10px;border-radius:8px;border:none;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;}
 #archive-modal-cancel{background:#eee;color:#333;}
 #archive-modal-confirm{background:#0F6E56;color:white;}
-#ai-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9000;align-items:center;justify-content:center;padding:20px;}
-#ai-modal.open{display:flex;}
-#ai-modal-inner{background:white;border-radius:14px;padding:24px;max-width:720px;width:100%;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 8px 30px rgba(0,0,0,0.2);}
-#ai-modal-inner h3{color:#534AB7;margin:0 0 12px;font-size:18px;}
-#ai-modal-body{flex:1;overflow-y:auto;font-size:13px;line-height:1.7;white-space:pre-wrap;color:#333;padding:12px;background:#f7f7fb;border-radius:8px;margin-bottom:12px;min-height:120px;}
-#ai-modal-close{background:#534AB7;color:white;border:none;padding:10px 20px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;align-self:flex-end;}
 /* 過去シフトタブ */
 #past-shift-panel{background:white;border-radius:10px;padding:16px 18px;margin-bottom:14px;border:0.5px solid #e5e5e0;}
 #past-month-select{width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;margin-bottom:12px;font-family:inherit;}
@@ -188,7 +182,7 @@ table.sg{border-collapse:collapse;table-layout:fixed;}
 
 <div id="app-body" style="display:none;">
 <header>
-  <h1>移動販売シフト管理 <span style="font-size:12px;opacity:0.75;font-weight:400;">v3.2026.0830</span></h1>
+  <h1>移動販売シフト管理 <span style="font-size:12px;opacity:0.75;font-weight:400;">v4.2026.0831</span></h1>
   <span class="save-badge" id="save-badge">保存しました</span>
   <button class="btn btn-sm" style="background:#1D9E75;color:white;border-color:#1D9E75;" onclick="exportJSON()" title="全データをJSONファイルに書き出します">全データ保存</button>
   <button class="btn btn-sm" style="background:#BA7517;color:white;border-color:#BA7517;" onclick="document.getElementById('import-json-file').click()" title="JSONファイルからデータを復元します">全データ復元</button>
@@ -212,6 +206,7 @@ table.sg{border-collapse:collapse;table-layout:fixed;}
       <div class="tab" onclick="go('overview')">月間カレンダー</div>
       <div class="tab" onclick="go('past')">📁 過去シフト</div>
       <div class="tab" onclick="go('poster')">🖼️ ポスター</div>
+      <div class="tab" onclick="go('analysis')">📊 実績分析</div>
     </div>
   </div>
   <div style="background:white;border-radius:0 0 10px 10px;border:0.5px solid #e5e5e0;border-top:none;padding:16px;margin-bottom:8px;">
@@ -346,7 +341,6 @@ table.sg{border-collapse:collapse;table-layout:fixed;}
         <div style="text-align:center;padding:3rem;color:#888;">
           <p style="margin-bottom:1rem;">設定が完了したらシフトを自動生成できます</p>
           <button class="btn btn-primary" onclick="generate()">シフトを自動生成</button>
-          <button class="btn btn-outline" onclick="aiPropose()" style="margin-left:8px;">🤖 AIに提案させる</button>
         </div>
       </div>
     </div>
@@ -405,6 +399,28 @@ table.sg{border-collapse:collapse;table-layout:fixed;}
         </div>
       </div>
     </div>
+    <div id="p-analysis" class="panel">
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px;">
+          <div class="sec-title" style="margin-bottom:0;">📊 過去実績分析</div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <label style="font-size:12px;color:#666;">対象期間：</label>
+            <select id="analysis-range" style="padding:5px 10px;border:1px solid #ddd;border-radius:8px;font-size:12px;">
+              <option value="3">直近3ヶ月</option>
+              <option value="6" selected>直近6ヶ月</option>
+              <option value="12">直近12ヶ月</option>
+              <option value="99">全期間</option>
+            </select>
+            <button class="btn btn-primary btn-sm" onclick="runAnalysis()">🔍 分析実行</button>
+          </div>
+        </div>
+        <p class="muted" style="margin-bottom:12px;">過去のアーカイブから、スタッフごとの出店場所の傾向（専属度・頻度）を集計します。集計結果はシフト自動生成時の参考スコアとして使えます。</p>
+        <div id="analysis-summary" style="margin-bottom:12px;"></div>
+        <div id="analysis-result" style="overflow-x:auto;">
+          <p class="muted" style="text-align:center;padding:30px;">「分析実行」を押すと過去のアーカイブを集計します</p>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- 月次更新確認モーダル -->
@@ -419,14 +435,22 @@ table.sg{border-collapse:collapse;table-layout:fixed;}
     </div>
   </div>
 
-  <!-- AI提案モーダル -->
-  <div id="ai-modal">
-    <div id="ai-modal-inner">
-      <h3>🤖 AIによるシフト提案</h3>
-      <div id="ai-modal-body">読み込み中...</div>
-      <button id="ai-modal-close" onclick="closeAiModal()">閉じる</button>
+  <!-- AI指示モーダル -->
+  <div id="ai-instruct-modal" style="display:none;position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,0.4);align-items:center;justify-content:center;">
+    <div style="background:white;border-radius:14px;padding:24px;max-width:480px;width:90%;box-shadow:0 8px 30px rgba(0,0,0,0.25);">
+      <h3 style="color:#7C3AED;margin:0 0 6px;font-size:17px;">🤖 AIにシフトを指示</h3>
+      <p style="color:#666;font-size:12px;margin-bottom:14px;">「西垣佑希乃を烏丸に多め」のように、大まかな指示を日本語で入力してください。現在のシフトを解析して変更案を提案します。</p>
+      <textarea id="ai-instruct-input" placeholder="例：西垣佑希乃を烏丸小路に多めに配置して" style="width:100%;min-height:70px;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:inherit;resize:vertical;box-sizing:border-box;"></textarea>
+      <div id="ai-instruct-status" style="display:none;margin-top:10px;padding:10px;border-radius:8px;font-size:12px;"></div>
+      <div id="ai-instruct-preview" style="display:none;margin-top:10px;max-height:200px;overflow-y:auto;border:1px solid #eee;border-radius:8px;padding:8px;font-size:12px;"></div>
+      <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end;">
+        <button class="btn" onclick="closeAiInstructModal()">キャンセル</button>
+        <button class="btn btn-primary" id="ai-instruct-submit" style="background:#7C3AED;border-color:#7C3AED;" onclick="submitAiInstruction()">送信</button>
+        <button class="btn btn-primary" id="ai-instruct-apply" style="display:none;background:#0B8043;border-color:#0B8043;" onclick="applyAiInstruction()">この内容で反映</button>
+      </div>
     </div>
   </div>
+
   <div class="nav-row">
     <button class="btn" onclick="prevTab()">← 戻る</button>
     <button class="btn btn-primary" id="nbtn" onclick="nextTab()">次へ →</button>
@@ -436,11 +460,10 @@ table.sg{border-collapse:collapse;table-layout:fixed;}
 
 <script>
 
-const TABS=['staff','locations','candidates','priority','wishes','result','overview','past','poster'];
+const TABS=['staff','locations','candidates','priority','wishes','result','overview','past','poster','analysis'];
 const DOW=['日','月','火','水','木','金','土'];
 const DOW_MAP={日:0,月:1,火:2,水:3,木:4,金:5,土:6};
 const LS_KEY='shift_app_v1';
-const AI_FUNCTION_URL='https://asia-northeast1-shift-app-920a1.cloudfunctions.net/aiShiftProposal';
 let curTab=0,staff=[],locs=[],priorities={},wishes={},candidates={},nextSid=12,nextLid=1;
 let lastSchedule=null,lastAssignments=null,lastLocDates=null,lastMonthInfo=null,saveTimer=null;
 let traineeAssignments={}; // {locId:{day:[sid,...]}}
@@ -1502,6 +1525,7 @@ function toggleWish(sid,day){
 
 /* ===== シフト生成 ===== */
 function generate(){
+  const affinityCount=Object.keys(staffLocAffinity).length;
   const{days,y,m,key}=getMonthInfo();lastMonthInfo={days,y,m,key};
   const schedule={};staff.forEach(s=>{schedule[s.id]={};});
   const locDates={};
@@ -1537,9 +1561,34 @@ function generate(){
         if(activeLocs.some(ol=>ol.id!==l.id&&assignments[ol.id][d]===s.id))return false;
         return true;
       };
+      // 実績スコア取得ヘルパー（過去実績分析から）
+      const affinityScore=s=>{
+        const info=staffLocAffinity[s.name]?.[l.name];
+        return info?info.ratio:0; // 0〜100
+      };
       let assigned=null;
-      for(const rank of['1','2','3']){if(assigned)break;const cands=staff.filter(s=>pm[s.id]===rank&&isAvail(s));const sorted=[...cands.filter(s=>s.prefDows.includes(dow)),...cands.filter(s=>!s.prefDows.includes(dow))].sort(()=>Math.random()-0.5);if(sorted.length)assigned=sorted[0];}
-      if(!assigned){const fb=staff.filter(s=>!ngIds.includes(s.id)&&isAvail(s));const sorted=[...fb.filter(s=>s.prefDows.includes(dow)),...fb.filter(s=>!s.prefDows.includes(dow))].sort((a,b)=>Object.values(schedule[a.id]).filter(v=>v).length-Object.values(schedule[b.id]).filter(v=>v).length);if(sorted.length)assigned=sorted[0];}
+      for(const rank of['1','2','3']){
+        if(assigned)break;
+        const cands=staff.filter(s=>pm[s.id]===rank&&isAvail(s));
+        // 実績スコアが高い順→prefDows一致→ランダムの優先度でソート
+        const withPref=cands.filter(s=>s.prefDows.includes(dow)).sort((a,b)=>affinityScore(b)-affinityScore(a)||Math.random()-0.5);
+        const withoutPref=cands.filter(s=>!s.prefDows.includes(dow)).sort((a,b)=>affinityScore(b)-affinityScore(a)||Math.random()-0.5);
+        const sorted=[...withPref,...withoutPref];
+        if(sorted.length)assigned=sorted[0];
+      }
+      if(!assigned){
+        const fb=staff.filter(s=>!ngIds.includes(s.id)&&isAvail(s));
+        const withPref=fb.filter(s=>s.prefDows.includes(dow));
+        const withoutPref=fb.filter(s=>!s.prefDows.includes(dow));
+        // 実績スコアを加味しつつ、出勤日数が少ない人を優先（バランス優先度70%、実績優先度30%）
+        const scoreFn=s=>{
+          const days_=Object.values(schedule[s.id]).filter(v=>v).length;
+          const aff=affinityScore(s);
+          return days_*10-aff*0.3; // 小さいほど優先
+        };
+        const sorted=[...withPref,...withoutPref].sort((a,b)=>scoreFn(a)-scoreFn(b));
+        if(sorted.length)assigned=sorted[0];
+      }
       assignments[l.id][d]=assigned?assigned.id:null;if(assigned)schedule[assigned.id][d]=l.name;
     });
   }
@@ -1553,6 +1602,9 @@ function generate(){
   lastSchedule=schedule;lastAssignments=assignments;lastLocDates=locDates;
   saveAll();
   go('result');
+  if(affinityCount>0){
+    setTimeout(()=>showEditMsg(`✅ シフトを生成しました（過去実績スコアを反映：${affinityCount}名分のデータ使用）`),100);
+  }
 }
 
 /* ===== シフト表描画（手動編集対応） ===== */
@@ -1961,6 +2013,7 @@ function renderResult(keepScroll){
       <button class="btn" style="background:#0B8043;color:white;border-color:#0B8043;" onclick="downloadICS()">📅 Googleカレンダー用ICS出力</button>
       <button class="btn" style="background:#5C3D2E;color:white;border-color:#5C3D2E;" onclick="reArchiveCurrentShiftAuto()">💾 アーカイブに上書き保存</button>
       <button class="btn" style="background:#991B1B;color:white;border-color:#991B1B;" onclick="finalCheck()">🔍 最終チェック</button>
+      <button class="btn" style="background:#7C3AED;color:white;border-color:#7C3AED;" onclick="openAiInstructModal()">🤖 AI指示</button>
       <button class="btn" style="background:#1565C0;color:white;border-color:#1565C0;" onclick="shareShiftToCoffeeApp()">☕ コーヒー管理に共有</button>
       <button class="btn" onclick="document.getElementById('shift-upload-area').style.display=document.getElementById('shift-upload-area').style.display==='none'?'block':'none'">CSVアップロード</button>
     </div>
@@ -2038,6 +2091,138 @@ function renderResult(keepScroll){
   }else{
     requestAnimationFrame(()=>setupScrollSync());
   }
+}
+
+/* ============================================================
+   Part C: AI自然言語指示（Firebase Cloud Function経由）
+   ============================================================ */
+// ⚠️ デプロイ後、Cloud FunctionのURLをここに設定してください
+// 例: 'https://asia-northeast1-shift-app-920a1.cloudfunctions.net/aiShiftInstruction'
+const AI_FUNCTION_URL = 'https://asia-northeast1-shift-app-920a1.cloudfunctions.net/aiShiftProposal';
+
+let aiPendingChanges=null;
+
+function openAiInstructModal(){
+  if(!lastSchedule||!lastMonthInfo){alert('先にシフトを生成してください');return;}
+  document.getElementById('ai-instruct-modal').style.display='flex';
+  document.getElementById('ai-instruct-input').value='';
+  document.getElementById('ai-instruct-status').style.display='none';
+  document.getElementById('ai-instruct-preview').style.display='none';
+  document.getElementById('ai-instruct-apply').style.display='none';
+  document.getElementById('ai-instruct-submit').style.display='inline-block';
+  aiPendingChanges=null;
+}
+function closeAiInstructModal(){
+  document.getElementById('ai-instruct-modal').style.display='none';
+}
+
+async function submitAiInstruction(){
+  const input=document.getElementById('ai-instruct-input').value.trim();
+  if(!input){alert('指示を入力してください');return;}
+  if(!AI_FUNCTION_URL||AI_FUNCTION_URL.includes('YOUR_')){
+    alert('AI機能はまだセットアップされていません。\nCloud Functionのデプロイが必要です（README_DEPLOY.md参照）。');
+    return;
+  }
+  if(!window._currentUser){alert('ログインが必要です');return;}
+
+  const statusEl=document.getElementById('ai-instruct-status');
+  const submitBtn=document.getElementById('ai-instruct-submit');
+  statusEl.style.display='block';
+  statusEl.style.background='#EEEDFE';statusEl.style.color='#3C3489';
+  statusEl.textContent='🤖 AIが解析中...（数秒お待ちください）';
+  submitBtn.disabled=true;
+
+  try{
+    const idToken=await window._currentUser.getIdToken();
+    const{days,y,m}=lastMonthInfo;
+
+    // シフトデータを要約してAPI呼び出し用に整形
+    const schedulePlain={};
+    staff.forEach(s=>{schedulePlain[s.id]=lastSchedule[s.id]||{};});
+    const locDatesPlain={};
+    locs.forEach(l=>{locDatesPlain[l.id]=lastLocDates[l.id]||[];});
+
+    const shiftData={
+      month:`${y}-${String(m).padStart(2,'0')}`,
+      staff:staff.map(s=>({id:s.id,name:s.name,role:s.role})),
+      locs:locs.map(l=>({id:l.id,name:l.name})),
+      schedule:schedulePlain,
+      locDates:locDatesPlain
+    };
+
+    const res=await fetch(AI_FUNCTION_URL,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({idToken,instruction:input,shiftData})
+    });
+    const data=await res.json();
+
+    if(!data.ok){
+      statusEl.style.background='#FEE2E2';statusEl.style.color='#991B1B';
+      statusEl.textContent='⚠️ エラー: '+(data.error||'不明なエラー');
+      submitBtn.disabled=false;
+      return;
+    }
+
+    if(!data.changes||data.changes.length===0){
+      statusEl.style.background='#FEF3C7';statusEl.style.color='#92400E';
+      statusEl.textContent='ℹ️ '+(data.explanation||'変更案が見つかりませんでした。指示を具体的にしてみてください。');
+      submitBtn.disabled=false;
+      return;
+    }
+
+    // プレビュー表示
+    aiPendingChanges=data.changes;
+    statusEl.style.background='#E1F5EE';statusEl.style.color='#085041';
+    statusEl.textContent='✅ '+(data.explanation||'変更案を生成しました');
+
+    const previewEl=document.getElementById('ai-instruct-preview');
+    previewEl.style.display='block';
+    previewEl.innerHTML=data.changes.map(c=>{
+      const s=staff.find(x=>x.id===c.staffId);
+      const l=locs.find(x=>x.id===c.locId);
+      return `<div style="padding:4px 0;border-bottom:1px solid #f0f0ea;">${c.day}日：${l?l.name:'?'} → ${s?s.name:'?'}</div>`;
+    }).join('');
+
+    submitBtn.style.display='none';
+    document.getElementById('ai-instruct-apply').style.display='inline-block';
+
+  }catch(e){
+    console.error('AI指示エラー:',e);
+    statusEl.style.background='#FEE2E2';statusEl.style.color='#991B1B';
+    statusEl.textContent='⚠️ 通信エラー: '+e.message;
+  }
+  submitBtn.disabled=false;
+}
+
+function applyAiInstruction(){
+  if(!aiPendingChanges||aiPendingChanges.length===0)return;
+  let applied=0;
+  aiPendingChanges.forEach(c=>{
+    const s=staff.find(x=>x.id===c.staffId);
+    const l=locs.find(x=>x.id===c.locId);
+    if(!s||!l)return;
+    if(c.action!=='assign')return;
+    // applyLocEditと同じロジックで反映（研修中でなければ通常割当）
+    if(!lastAssignments[l.id])lastAssignments[l.id]={};
+    if(!lastLocDates[l.id])lastLocDates[l.id]=[];
+    const prevSid=lastAssignments[l.id][c.day];
+    if(prevSid&&prevSid>0&&lastSchedule[prevSid]){
+      delete lastSchedule[prevSid][c.day];
+    }
+    lastAssignments[l.id][c.day]=s.id;
+    if(!lastSchedule[s.id])lastSchedule[s.id]={};
+    lastSchedule[s.id][c.day]=l.name;
+    if(!lastLocDates[l.id].includes(c.day)){
+      lastLocDates[l.id].push(c.day);
+      lastLocDates[l.id].sort((a,b)=>a-b);
+    }
+    applied++;
+  });
+  saveAll();
+  renderResult(true);
+  closeAiInstructModal();
+  showEditMsg(`🤖 AI指示により${applied}件変更しました`);
 }
 
 /* ===== 最終チェック ===== */
@@ -3761,7 +3946,7 @@ function downloadViewer(){
 <div id="tab-car" style="display:none;"><div class="card"><div class="ct">号車別場所割当表</div><div class="tw"><table id="ct"></table></div></div></div>
 <div id="tab-cal" style="display:none;"><div class="card"><div id="legend-area" class="legend"></div><div class="cal-grid" id="cal-grid"></div></div></div>
 </div>
-<footer>閲覧専用シフト表 ${ml}<span class="ver-badge">v3.2026.0830</span></footer>
+<footer>閲覧専用シフト表 ${ml}<span class="ver-badge">v4.2026.0831</span></footer>
 <script>
 const staff=${sj},locs=${lj},ld=${JSON.stringify(effectiveLd)},as=${JSON.stringify(lastAssignments)},sc=${JSON.stringify(lastSchedule)},co=${coj},sec=${secj},days=${days},y=${y},m=${m};
 const circledNum=n=>['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩','⑪','⑫'][n-1]||String(n);
@@ -4147,6 +4332,110 @@ async function executeMonthlyUpdate(){
     alert('エラーが発生しました: '+err.message);
     setStatus('⚠️ 月次更新失敗: '+err.message);
   }
+}
+
+/* ============================================================
+   Part A: 過去実績分析（スタッフ×場所の出勤傾向を集計）
+   ============================================================ */
+let staffLocAffinity={}; // {staffName:{locName:{count, totalDays, ratio}}}
+let analysisMonthsUsed=[];
+
+async function runAnalysis(){
+  const rangeSel=document.getElementById('analysis-range');
+  const rangeMonths=parseInt(rangeSel?.value||'6');
+  const summaryEl=document.getElementById('analysis-summary');
+  const resultEl=document.getElementById('analysis-result');
+
+  if(!window._loadArchiveList||!window._loadArchiveData){
+    resultEl.innerHTML='<p class="muted" style="text-align:center;padding:20px;">Firebase未接続</p>';
+    return;
+  }
+
+  resultEl.innerHTML='<p class="muted" style="text-align:center;padding:20px;">分析中...</p>';
+  summaryEl.innerHTML='';
+
+  try{
+    const allMonths=await window._loadArchiveList();
+    if(!allMonths||allMonths.length===0){
+      resultEl.innerHTML='<p class="muted" style="text-align:center;padding:20px;">アーカイブがありません</p>';
+      return;
+    }
+    // 直近N ヶ月分を選択（99=全期間）
+    const sortedMonths=allMonths.sort().reverse();
+    const targetMonths=rangeMonths>=99?sortedMonths:sortedMonths.slice(0,rangeMonths);
+    analysisMonthsUsed=targetMonths;
+
+    // 集計: {staffName:{locName:{count,days}}}
+    const agg={}; // staffName -> locName -> count
+    const staffTotalDays={}; // staffName -> 総出勤日数
+    let processedMonths=0;
+
+    for(const month of targetMonths){
+      const data=await window._loadArchiveData(month);
+      if(!data||!data.lastSchedule||!data.staff)continue;
+      processedMonths++;
+      const sched=data.lastSchedule;
+      const staffList=data.staff;
+      staffList.forEach(s=>{
+        const sname=s.name;
+        const daySched=sched[s.id]||{};
+        Object.values(daySched).forEach(locName=>{
+          if(!locName)return;
+          if(!agg[sname])agg[sname]={};
+          agg[sname][locName]=(agg[sname][locName]||0)+1;
+          staffTotalDays[sname]=(staffTotalDays[sname]||0)+1;
+        });
+      });
+    }
+
+    // 親和性スコア計算：{staffName:{locName:{count,ratio}}}
+    const affinity={};
+    Object.keys(agg).forEach(sname=>{
+      affinity[sname]={};
+      const total=staffTotalDays[sname]||1;
+      Object.entries(agg[sname]).forEach(([locName,count])=>{
+        affinity[sname][locName]={count,ratio:Math.round(count/total*100)};
+      });
+    });
+    staffLocAffinity=affinity;
+
+    summaryEl.innerHTML=`<div style="font-size:12px;color:#666;background:#EEEDFE;padding:8px 12px;border-radius:8px;">
+      📅 分析対象: ${processedMonths}ヶ月分（${targetMonths.map(m=>{const[y,mo]=m.split('-');return y+'年'+parseInt(mo)+'月';}).join('、')}）
+    </div>`;
+
+    renderAnalysisTable(affinity,staffTotalDays);
+
+  }catch(e){
+    console.error('分析エラー:',e);
+    resultEl.innerHTML=`<p class="muted" style="text-align:center;padding:20px;color:#A32D2D;">分析エラー: ${e.message}</p>`;
+  }
+}
+
+function renderAnalysisTable(affinity,staffTotalDays){
+  const resultEl=document.getElementById('analysis-result');
+  const staffNames=Object.keys(affinity).sort((a,b)=>(staffTotalDays[b]||0)-(staffTotalDays[a]||0));
+
+  if(staffNames.length===0){
+    resultEl.innerHTML='<p class="muted" style="text-align:center;padding:20px;">集計データがありません</p>';
+    return;
+  }
+
+  let html='<table class="sg" style="min-width:100%;"><thead><tr><th style="text-align:left;min-width:80px;">スタッフ</th><th>総出勤</th><th style="text-align:left;">専属・頻出場所（出勤比率順）</th></tr></thead><tbody>';
+  staffNames.forEach(sname=>{
+    const locs_=affinity[sname];
+    const sorted=Object.entries(locs_).sort((a,b)=>b[1].count-a[1].count);
+    const top=sorted.slice(0,5);
+    const chips=top.map(([lname,info])=>{
+      const isMain=info.ratio>=50;
+      const bg=isMain?'#E1F5EE':info.ratio>=25?'#EEEDFE':'#f5f5f0';
+      const col=isMain?'#085041':info.ratio>=25?'#3C3489':'#666';
+      return `<span style="display:inline-block;background:${bg};color:${col};font-size:11px;padding:3px 8px;border-radius:99px;margin:2px;">${lname} ${info.count}回(${info.ratio}%)${isMain?' 🎯':''}</span>`;
+    }).join('');
+    html+=`<tr><td style="text-align:left;font-weight:500;white-space:nowrap;">${sname}</td><td>${staffTotalDays[sname]||0}日</td><td style="text-align:left;">${chips}</td></tr>`;
+  });
+  html+='</tbody></table>';
+  html+='<div style="margin-top:10px;font-size:11px;color:#888;">🎯 = 出勤比率50%以上（専属場所候補）　※この分析結果はシフト自動生成時の参考スコアとして自動反映されます</div>';
+  resultEl.innerHTML=html;
 }
 
 /* --- 過去シフト一覧読み込み --- */
@@ -4846,34 +5135,6 @@ onAuthStateChanged(auth, async (user) => {
       const ref = doc(db, 'users', user.uid, 'archives', month);
       const snap = await getDoc(ref);
       return snap.exists() ? snap.data() : null;
-    };
-
-    // AI提案（Claude Cloud Function 呼び出し）
-    window.aiPropose = async () => {
-      const modal=document.getElementById('ai-modal');
-      const body=document.getElementById('ai-modal-body');
-      modal.classList.add('open');
-      body.textContent='🤖 Claudeに問い合わせ中...（最大60秒）';
-      try{
-        const tmonth=document.getElementById('tmonth')?.value||'';
-        const payload={staff,locs,wishes,candidates,priorities,monthInfo:{tmonth}};
-        const res=await fetch(AI_FUNCTION_URL,{
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body:JSON.stringify(payload)
-        });
-        const data=await res.json();
-        if(!res.ok||!data.ok){
-          body.textContent='エラー: '+(data.error||res.statusText);
-          return;
-        }
-        body.textContent=data.text||'(空のレスポンス)';
-      }catch(e){
-        body.textContent='通信エラー: '+e.message;
-      }
-    };
-    window.closeAiModal = () => {
-      document.getElementById('ai-modal').classList.remove('open');
     };
 
   } else {
