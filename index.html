@@ -5128,10 +5128,10 @@ window._saveStoreDetails = async (locList) => {
   try {
     const now = new Date().toISOString();
     const promises = locList.map(l => {
-      const storeId = `loc_${l.id}`; // 場所IDベース（号車に依存しない）
-      const ref = doc(db, 'store_details', storeId);
+      // ドキュメントIDを場所名に変更（出店場所を一意に特定できる）
+      const docId = l.name;
+      const ref = doc(db, 'store_details', docId);
       return setDoc(ref, {
-        storeId,
         locId: l.id,
         name: l.name || '',
         address: l.address || '',
