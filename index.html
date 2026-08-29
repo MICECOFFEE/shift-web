@@ -1453,11 +1453,9 @@ function updateLoc(lid,key,val){
   if(l){
     l[key]=val;
     saveAll();
-    // 住所・営業時間変更時はstore_detailsにも保存
+    // 住所・営業時間・場所名変更時はstore_detailsにも保存（全場所対象）
     if((key==='address'||key==='hours'||key==='name')&&window._saveStoreDetails){
-      // 号車が設定されている場所のみ対象
-      const locsWithCar=locs.filter(x=>x.carNo);
-      if(locsWithCar.length>0)window._saveStoreDetails(locsWithCar);
+      window._saveStoreDetails(locs);
     }
   }
 }
@@ -3383,10 +3381,9 @@ function shareShiftToCoffeeApp(){
       schedules:scheduleData,
       updatedAt:new Date().toISOString()
     });
-    // 場所マスタ（住所・営業時間）をstore_detailsに保存
+    // 場所マスタ（住所・営業時間）をstore_detailsに保存（全場所対象）
     if(window._saveStoreDetails){
-      const locsWithCar=locs.filter(l=>l.carNo);
-      if(locsWithCar.length>0)window._saveStoreDetails(locsWithCar);
+      window._saveStoreDetails(locs);
     }
     showEditMsg(`☕ ${scheduleData.length}件のスケジュールをコーヒー管理アプリに共有しました`);
   }else{
@@ -5074,6 +5071,10 @@ async function loadFromFirestore() {
           window.renderStaff();
           window.renderLocs();
           if(nd.lastSchedule && nd.lastMonthInfo) window.go('result');
+          // ログイン後に全場所のstore_detailsを同期
+          if(window._saveStoreDetails && nd.locs && nd.locs.length > 0){
+            window._saveStoreDetails(nd.locs);
+          }
         } catch(err) {
           fbSetStatus('データ読み込みエラー: ' + err.message);
           console.error(err);
@@ -5127,13 +5128,15 @@ window._saveStoreDetails = async (locList) => {
   try {
     const now = new Date().toISOString();
     const promises = locList.map(l => {
-      const storeId = `s${l.carNo||l.id}`;
+      const storeId = `loc_${l.id}`; // 場所IDベース（号車に依存しない）
       const ref = doc(db, 'store_details', storeId);
       return setDoc(ref, {
         storeId,
+        locId: l.id,
         name: l.name || '',
         address: l.address || '',
         hours: l.hours || '',
+        carNo: l.carNo || null,
         updatedAt: now
       }, { merge: true });
     });
@@ -5141,6 +5144,7 @@ window._saveStoreDetails = async (locList) => {
     console.log('store_details 保存完了:', locList.length, '件');
   } catch(e) {
     console.error('store_details 保存エラー:', e);
+    alert('store_details 保存エラー: ' + e.message);
   }
 };
 
