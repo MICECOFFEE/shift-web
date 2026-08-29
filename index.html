@@ -1448,7 +1448,19 @@ function renderLocs(){
       <div class="dow-chips">${DOW.map((d,i)=>`<div class="dow-chip ${l.days.includes(i)?'pref':''}" onclick="toggleLocDay(${l.id},${i})">${d}</div>`).join('')}</div>
     </div>`).join(''):'<p class="muted">場所を追加すると表示されます</p>';
 }
-function updateLoc(lid,key,val){const l=locs.find(x=>x.id===lid);if(l){l[key]=val;saveAll();}}
+function updateLoc(lid,key,val){
+  const l=locs.find(x=>x.id===lid);
+  if(l){
+    l[key]=val;
+    saveAll();
+    // 住所・営業時間変更時はstore_detailsにも保存
+    if((key==='address'||key==='hours'||key==='name')&&window._saveStoreDetails){
+      // 号車が設定されている場所のみ対象
+      const locsWithCar=locs.filter(x=>x.carNo);
+      if(locsWithCar.length>0)window._saveStoreDetails(locsWithCar);
+    }
+  }
+}
 function addLoc(){
   const n=document.getElementById('ln').value.trim();if(!n)return;
   if(locs.find(l=>l.name===n)){alert('同じ名前が既に登録されています');return;}
@@ -3371,6 +3383,11 @@ function shareShiftToCoffeeApp(){
       schedules:scheduleData,
       updatedAt:new Date().toISOString()
     });
+    // 場所マスタ（住所・営業時間）をstore_detailsに保存
+    if(window._saveStoreDetails){
+      const locsWithCar=locs.filter(l=>l.carNo);
+      if(locsWithCar.length>0)window._saveStoreDetails(locsWithCar);
+    }
     showEditMsg(`☕ ${scheduleData.length}件のスケジュールをコーヒー管理アプリに共有しました`);
   }else{
     alert('Firebase未接続のため共有できません。\nWebアプリ版でご利用ください。');
@@ -5100,6 +5117,30 @@ window._shareShiftToFirestore = async (shiftData) => {
   } catch(e) {
     console.error('シフト共有エラー:', e);
     alert('共有に失敗しました: ' + e.message);
+  }
+};
+
+// store_details コレクションへの場所マスタ保存
+// セキュリティルール: allow read: if true（LINEミニアプリからの読み取り用）
+window._saveStoreDetails = async (locList) => {
+  if(!currentUser) return;
+  try {
+    const now = new Date().toISOString();
+    const promises = locList.map(l => {
+      const storeId = `s${l.carNo||l.id}`;
+      const ref = doc(db, 'store_details', storeId);
+      return setDoc(ref, {
+        storeId,
+        name: l.name || '',
+        address: l.address || '',
+        hours: l.hours || '',
+        updatedAt: now
+      }, { merge: true });
+    });
+    await Promise.all(promises);
+    console.log('store_details 保存完了:', locList.length, '件');
+  } catch(e) {
+    console.error('store_details 保存エラー:', e);
   }
 };
 
