@@ -182,7 +182,7 @@ table.sg{border-collapse:collapse;table-layout:fixed;}
 
 <div id="app-body" style="display:none;">
 <header>
-  <h1>移動販売シフト管理 <span style="font-size:12px;opacity:0.75;font-weight:400;">v4.2026.0915</span></h1>
+  <h1>移動販売シフト管理 <span style="font-size:12px;opacity:0.75;font-weight:400;">v4.2026.0916</span></h1>
   <span class="save-badge" id="save-badge">保存しました</span>
   <button class="btn btn-sm" style="background:#1D9E75;color:white;border-color:#1D9E75;" onclick="exportJSON()" title="全データをJSONファイルに書き出します">全データ保存</button>
   <button class="btn btn-sm" style="background:#BA7517;color:white;border-color:#BA7517;" onclick="document.getElementById('import-json-file').click()" title="JSONファイルからデータを復元します">全データ復元</button>
@@ -2265,17 +2265,32 @@ function finalCheck(){
     }
   });
 
-  // ② 場所別→スタッフ別の不整合（場所別にあるのにスタッフ別にない）
+  // ② 場所別（lastAssignments）→スタッフ別の不整合
+  // lastAssignmentsに値があるのにlastScheduleと一致しない場合を検出
   locs.forEach(l=>{
-    const ldl=(lastLocDates||{})[l.id]||[];
-    ldl.forEach(d=>{
+    for(let d=1;d<=days;d++){
       const sid=(assignments[l.id]||{})[d];
-      if(!sid||sid<=0)return;
+      if(!sid||sid<=0)continue; // null/-1は正常
       const locNameInSched=(schedule[sid]||{})[d];
       if(locNameInSched!==l.name){
-        issues.push(`【不整合】${d}日 ${l.name}：場所別=${staff.find(x=>x.id===sid)?.name||sid}があるがスタッフ別=${locNameInSched||'なし'}`);
+        const sName=staff.find(x=>x.id===sid)?.name||String(sid);
+        issues.push(`【不整合】${d}日 ${l.name}：場所別に${sName}があるがスタッフ別=${locNameInSched||'なし'}`);
       }
-    });
+    }
+  });
+
+  // ③ スタッフ別（lastSchedule）にあるが場所別（lastAssignments）にない
+  staff.forEach(s=>{
+    for(let d=1;d<=days;d++){
+      const locName=(schedule[s.id]||{})[d];
+      if(!locName)continue;
+      const loc=locs.find(l=>l.name===locName);
+      if(!loc)continue;
+      const sidInAssign=(assignments[loc.id]||{})[d];
+      if(sidInAssign!==s.id){
+        issues.push(`【不整合】${d}日 ${locName}：スタッフ別に${s.name}があるが場所別=${staff.find(x=>x.id===sidInAssign)?.name||sidInAssign||'なし'}`);
+      }
+    }
   });
 
   // ③ 号車別の確認（同日に同じ号車が複数）
@@ -2344,6 +2359,8 @@ function fixInconsistencies(){
   const schedule=lastSchedule||{};
   const assignments=lastAssignments||{};
   let fixed=0;
+
+  // ① lastScheduleを正としてlastAssignmentsを補完
   staff.forEach(s=>{
     for(let d=1;d<=days;d++){
       const locName=schedule[s.id]?.[d];
@@ -2372,6 +2389,22 @@ function fixInconsistencies(){
       }
     }
   });
+
+  // ② lastAssignmentsにあるがlastScheduleにない→lastScheduleのデータで上書き
+  // （スタッフ別で削除済みなのに場所別に残っているケース）
+  locs.forEach(l=>{
+    for(let d=1;d<=days;d++){
+      const sid=assignments[l.id]?.[d];
+      if(!sid||sid<=0)continue;
+      const locNameInSched=(schedule[sid]||{})[d];
+      if(locNameInSched!==l.name){
+        // スタッフ別では別の場所または出勤なし→場所別から削除
+        assignments[l.id][d]=null;
+        fixed++;
+      }
+    }
+  });
+
   saveAll();
   renderResult(true);
   showEditMsg(`✅ ${fixed}件の不整合を修正しました`);
@@ -3932,7 +3965,7 @@ function downloadViewer(){
 <div id="tab-car" style="display:none;"><div class="card"><div class="ct">号車別場所割当表</div><div class="tw"><table id="ct"></table></div></div></div>
 <div id="tab-cal" style="display:none;"><div class="card"><div id="legend-area" class="legend"></div><div class="cal-grid" id="cal-grid"></div></div></div>
 </div>
-<footer>閲覧専用シフト表 ${ml}<span class="ver-badge">v4.2026.0915</span></footer>
+<footer>閲覧専用シフト表 ${ml}<span class="ver-badge">v4.2026.0916</span></footer>
 <script>
 const staff=${sj},locs=${lj},ld=${JSON.stringify(effectiveLd)},as=${JSON.stringify(lastAssignments)},sc=${JSON.stringify(lastSchedule)},co=${coj},sec=${secj},days=${days},y=${y},m=${m};
 const circledNum=n=>['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩','⑪','⑫'][n-1]||String(n);
