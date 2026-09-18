@@ -182,7 +182,7 @@ table.sg{border-collapse:collapse;table-layout:fixed;}
 
 <div id="app-body" style="display:none;">
 <header>
-  <h1>移動販売シフト管理 <span style="font-size:12px;opacity:0.75;font-weight:400;">v4.2026.0914</span></h1>
+  <h1>移動販売シフト管理 <span style="font-size:12px;opacity:0.75;font-weight:400;">v4.2026.0915</span></h1>
   <span class="save-badge" id="save-badge">保存しました</span>
   <button class="btn btn-sm" style="background:#1D9E75;color:white;border-color:#1D9E75;" onclick="exportJSON()" title="全データをJSONファイルに書き出します">全データ保存</button>
   <button class="btn btn-sm" style="background:#BA7517;color:white;border-color:#BA7517;" onclick="document.getElementById('import-json-file').click()" title="JSONファイルからデータを復元します">全データ復元</button>
@@ -2333,55 +2333,8 @@ function finalCheck(){
 
 /* ===== スタッフ別と場所別の自動同期 ===== */
 function syncAssignments(schedule,assignments,days){
-  let fixed=0;
-
-  // ① スタッフ別→場所別への同期（スタッフ別にあるのに場所別にない場合）
-  staff.forEach(s=>{
-    for(let d=1;d<=days;d++){
-      const locName=(schedule[s.id]||{})[d];
-      if(!locName)continue;
-      const loc=locs.find(l=>l.name===locName);
-      if(!loc)continue;
-      const isTrainee=getRoleOnDay(s,d)==='trainee';
-      if(isTrainee){
-        if(!traineeAssignments[loc.id])traineeAssignments[loc.id]={};
-        if(!traineeAssignments[loc.id][d])traineeAssignments[loc.id][d]=[];
-        if(!traineeAssignments[loc.id][d].includes(s.id)){
-          traineeAssignments[loc.id][d].push(s.id);
-          fixed++;
-        }
-      } else {
-        if(!assignments[loc.id])assignments[loc.id]={};
-        // undefinedの場合のみ補完（nullは意図的な「未割当」または「出店なし」なので上書きしない）
-        if(assignments[loc.id][d]===undefined){
-          assignments[loc.id][d]=s.id;
-          if(!lastLocDates[loc.id])lastLocDates[loc.id]=[];
-          if(!lastLocDates[loc.id].includes(d)){
-            lastLocDates[loc.id].push(d);
-            lastLocDates[loc.id].sort((a,b)=>a-b);
-          }
-          fixed++;
-        }
-      }
-    }
-  });
-
-  // ② 場所別→スタッフ別への同期（場所別が削除されたのにスタッフ別に残っている場合）
-  locs.forEach(l=>{
-    for(let d=1;d<=days;d++){
-      const sidInAssign=assignments[l.id]?.[d];
-      if(sidInAssign===undefined||sidInAssign===null||sidInAssign===-1)continue;
-      // 場所別に割り当てられているスタッフのスタッフ別を確認
-      const locNameInSched=(schedule[sidInAssign]||{})[d];
-      if(locNameInSched&&locNameInSched!==l.name){
-        // スタッフ別では別の場所になっている→場所別を正として修正
-        // スタッフ別の古いエントリを削除して場所別に合わせる
-        // ただし場所別が意図的に変更された場合のみ対応（自動修正は行わない）
-      }
-    }
-  });
-
-  if(fixed>0)saveAll();
+  // 自動sync無効化：applyLocEdit/applyStaffEditで個別に同期する方式に変更
+  // 自動syncはlastScheduleの古いデータで意図的な削除を上書きしてしまうため使用しない
 }
 
 /* ===== 不整合の一括修正 ===== */
@@ -3979,7 +3932,7 @@ function downloadViewer(){
 <div id="tab-car" style="display:none;"><div class="card"><div class="ct">号車別場所割当表</div><div class="tw"><table id="ct"></table></div></div></div>
 <div id="tab-cal" style="display:none;"><div class="card"><div id="legend-area" class="legend"></div><div class="cal-grid" id="cal-grid"></div></div></div>
 </div>
-<footer>閲覧専用シフト表 ${ml}<span class="ver-badge">v4.2026.0914</span></footer>
+<footer>閲覧専用シフト表 ${ml}<span class="ver-badge">v4.2026.0915</span></footer>
 <script>
 const staff=${sj},locs=${lj},ld=${JSON.stringify(effectiveLd)},as=${JSON.stringify(lastAssignments)},sc=${JSON.stringify(lastSchedule)},co=${coj},sec=${secj},days=${days},y=${y},m=${m};
 const circledNum=n=>['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩','⑪','⑫'][n-1]||String(n);
