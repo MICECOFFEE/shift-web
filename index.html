@@ -182,7 +182,7 @@ table.sg{border-collapse:collapse;table-layout:fixed;}
 
 <div id="app-body" style="display:none;">
 <header>
-  <h1>移動販売シフト管理 <span style="font-size:12px;opacity:0.75;font-weight:400;">v4.2026.0916</span></h1>
+  <h1>移動販売シフト管理 <span style="font-size:12px;opacity:0.75;font-weight:400;">v4.2026.0918</span></h1>
   <span class="save-badge" id="save-badge">保存しました</span>
   <button class="btn btn-sm" style="background:#1D9E75;color:white;border-color:#1D9E75;" onclick="exportJSON()" title="全データをJSONファイルに書き出します">全データ保存</button>
   <button class="btn btn-sm" style="background:#BA7517;color:white;border-color:#BA7517;" onclick="document.getElementById('import-json-file').click()" title="JSONファイルからデータを復元します">全データ復元</button>
@@ -207,6 +207,7 @@ table.sg{border-collapse:collapse;table-layout:fixed;}
       <div class="tab" onclick="go('past')">📁 過去シフト</div>
       <div class="tab" onclick="go('poster')">🖼️ ポスター</div>
       <div class="tab" onclick="go('analysis')">📊 実績分析</div>
+      <div class="tab" onclick="go('manual')">📖 マニュアル</div>
     </div>
   </div>
   <div style="background:white;border-radius:0 0 10px 10px;border:0.5px solid #e5e5e0;border-top:none;padding:16px;margin-bottom:8px;">
@@ -421,6 +422,81 @@ table.sg{border-collapse:collapse;table-layout:fixed;}
         </div>
       </div>
     </div>
+
+    <div id="p-manual" class="panel">
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+          <div class="sec-title" style="margin-bottom:0;">📖 マニュアル</div>
+        </div>
+
+        <!-- 閲覧用HTML -->
+        <div style="margin-bottom:24px;">
+          <h3 style="font-size:14px;font-weight:700;color:#534AB7;margin-bottom:12px;padding-bottom:6px;border-bottom:2px solid #EEEDFE;">📄 閲覧用HTMLの追加・更新手順</h3>
+          <div style="font-size:13px;line-height:1.8;color:#1a1a1a;">
+            <p style="margin-bottom:8px;"><strong>① アプリでシフトを生成した状態で「閲覧用HTMLを出力」をクリック</strong></p>
+            <p style="margin-bottom:8px;"><strong>② ダウンロードされたファイルを以下のフォルダに移動・上書き保存</strong></p>
+            <div style="background:#f5f5f0;border-radius:8px;padding:10px 14px;font-family:monospace;font-size:12px;margin-bottom:8px;">
+              G:\マイドライブ\100g COFFEE\シフト\shift-web\viewer\
+            </div>
+            <p style="margin-bottom:4px;color:#666;font-size:12px;">※新しい月の場合は <strong>viewer/index.html</strong> にリンクを追加：</p>
+            <div style="background:#f5f5f0;border-radius:8px;padding:10px 14px;font-family:monospace;font-size:12px;margin-bottom:8px;">
+              &lt;li&gt;&lt;a href="shift_202610_viewer.html"&gt;2026年10月&lt;/a&gt;&lt;/li&gt;
+            </div>
+            <p style="margin-bottom:8px;"><strong>③ PowerShellでpush</strong></p>
+            <div style="background:#1a1a1a;color:#4CAF50;border-radius:8px;padding:10px 14px;font-family:monospace;font-size:12px;margin-bottom:8px;">
+              cd "G:\マイドライブ\100g COFFEE\シフト\shift-web"<br>
+              git add .<br>
+              git commit -m "add viewer 2026-10"<br>
+              git push origin main
+            </div>
+            <p style="margin-bottom:4px;"><strong>④ スタッフに共有するURL</strong></p>
+            <div style="background:#f5f5f0;border-radius:8px;padding:10px 14px;font-family:monospace;font-size:12px;">
+              https://micecoffee.github.io/shift-web/viewer/shift_202610_viewer.html
+            </div>
+          </div>
+        </div>
+
+        <!-- index.htmlのデプロイ -->
+        <div style="margin-bottom:24px;">
+          <h3 style="font-size:14px;font-weight:700;color:#534AB7;margin-bottom:12px;padding-bottom:6px;border-bottom:2px solid #EEEDFE;">🚀 アプリ本体（index.html）のデプロイ手順</h3>
+          <div style="font-size:13px;line-height:1.8;color:#1a1a1a;">
+            <p style="margin-bottom:8px;"><strong>① Claudeからダウンロードしたindex.htmlをshift-webフォルダに上書き保存</strong></p>
+            <div style="background:#f5f5f0;border-radius:8px;padding:10px 14px;font-family:monospace;font-size:12px;margin-bottom:8px;">
+              G:\マイドライブ\100g COFFEE\シフト\shift-web\index.html
+            </div>
+            <p style="margin-bottom:8px;"><strong>② PowerShellでpush</strong></p>
+            <div style="background:#1a1a1a;color:#4CAF50;border-radius:8px;padding:10px 14px;font-family:monospace;font-size:12px;margin-bottom:8px;">
+              cd "G:\マイドライブ\100g COFFEE\シフト\shift-web"<br>
+              git add .<br>
+              git commit -m "update app"<br>
+              git push origin main
+            </div>
+            <p style="margin-bottom:4px;"><strong>③ バージョン確認</strong></p>
+            <p style="font-size:12px;color:#666;">アプリのヘッダーにバージョン番号（例：v4.2026.0918）が表示されていれば更新済み。<br>変わらない場合はCtrl+Shift+Rで強制リロード。</p>
+          </div>
+        </div>
+
+        <!-- 月次更新手順 -->
+        <div style="margin-bottom:24px;">
+          <h3 style="font-size:14px;font-weight:700;color:#534AB7;margin-bottom:12px;padding-bottom:6px;border-bottom:2px solid #EEEDFE;">📅 月次更新手順</h3>
+          <div style="font-size:13px;line-height:1.8;color:#1a1a1a;">
+            <p style="margin-bottom:4px;"><strong>①</strong> シフト表タブで当月シフトを確認・確定</p>
+            <p style="margin-bottom:4px;"><strong>②</strong>「💾 アーカイブに上書き保存」をクリック</p>
+            <p style="margin-bottom:4px;"><strong>③</strong>「☕ コーヒー管理に共有」をクリック（LINEミニアプリ連携）</p>
+            <p style="margin-bottom:4px;"><strong>④</strong> 閲覧用HTMLを出力→viewer/フォルダに保存→push（上記手順参照）</p>
+            <p style="margin-bottom:4px;"><strong>⑤</strong> スタッフタブ→「月次更新」ボタンをクリック（翌月に切替）</p>
+            <p style="margin-bottom:4px;"><strong>⑥</strong> 翌月の出店候補日・希望休を設定してシフトを生成</p>
+          </div>
+        </div>
+
+        <!-- 備考 -->
+        <div style="background:#FEF3C7;border-radius:8px;padding:12px 16px;font-size:12px;color:#92400E;">
+          <strong>💡 手順の追加・修正について</strong><br>
+          このマニュアルはClaude（AI）に依頼して編集できます。<br>
+          「マニュアルタブに〇〇の手順を追加して」と伝えてください。
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- 月次更新確認モーダル -->
@@ -460,7 +536,7 @@ table.sg{border-collapse:collapse;table-layout:fixed;}
 
 <script>
 
-const TABS=['staff','locations','candidates','priority','wishes','result','overview','past','poster','analysis'];
+const TABS=['staff','locations','candidates','priority','wishes','result','overview','past','poster','analysis','manual'];
 const DOW=['日','月','火','水','木','金','土'];
 const DOW_MAP={日:0,月:1,火:2,水:3,木:4,金:5,土:6};
 const LS_KEY='shift_app_v1';
@@ -1772,6 +1848,30 @@ function renderResult(keepScroll){
     if(!assignments[l.id])assignments[l.id]={};
   });
   staff.forEach(s=>{if(!schedule[s.id])schedule[s.id]={};});
+
+  // 候補日から除外された日にデータが残っていれば自動クリア
+  let autoFixed=0;
+  locs.forEach(l=>{
+    const effDays=locDates[l.id]||[];
+    for(let d=1;d<=days;d++){
+      // 実効候補日に含まれない日にスタッフが割り当てられていれば削除
+      if(!effDays.includes(d)){
+        const sid=assignments[l.id][d];
+        if(sid&&sid>0){
+          // lastScheduleからも削除
+          if(schedule[sid]&&schedule[sid][d]===l.name){
+            delete schedule[sid][d];
+          }
+          assignments[l.id][d]=null;
+          autoFixed++;
+        }
+      }
+    }
+  });
+  if(autoFixed>0){
+    saveAll();
+    console.log(`候補日除外チェック：${autoFixed}件の余分なデータを自動クリアしました`);
+  }
 
   const warnings=[];
   locs.forEach(l=>(locDates[l.id]||[]).forEach(d=>{
@@ -3965,7 +4065,7 @@ function downloadViewer(){
 <div id="tab-car" style="display:none;"><div class="card"><div class="ct">号車別場所割当表</div><div class="tw"><table id="ct"></table></div></div></div>
 <div id="tab-cal" style="display:none;"><div class="card"><div id="legend-area" class="legend"></div><div class="cal-grid" id="cal-grid"></div></div></div>
 </div>
-<footer>閲覧専用シフト表 ${ml}<span class="ver-badge">v4.2026.0916</span></footer>
+<footer>閲覧専用シフト表 ${ml}<span class="ver-badge">v4.2026.0918</span></footer>
 <script>
 const staff=${sj},locs=${lj},ld=${JSON.stringify(effectiveLd)},as=${JSON.stringify(lastAssignments)},sc=${JSON.stringify(lastSchedule)},co=${coj},sec=${secj},days=${days},y=${y},m=${m};
 const circledNum=n=>['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩','⑪','⑫'][n-1]||String(n);
