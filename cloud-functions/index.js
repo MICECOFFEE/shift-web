@@ -98,18 +98,35 @@ exports.aiShiftInstruction = onRequest(
 
       const systemPrompt = [
         'あなたは100g COFFEEの月次シフトを、ユーザーの自然言語指示に従って部分修正するアシスタントです。',
-        '入力として、現状のシフトデータ（staff, locs, schedule, locDates）とユーザー指示が与えられます。',
-        '出力は必ず以下のJSONオブジェクトのみを返してください。マークダウンコードフェンスや説明文は一切含めないでください。',
+        '入力として、現状のシフトデータ（staff, locs, schedule, locDates, wishes）とユーザー指示が与えられます。',
         '',
+        '# 入力データの説明',
+        '- staff: スタッフ一覧（id, name）',
+        '- locs: 場所（出店先）一覧（id, name）',
+        '- schedule: 現状の割当',
+        '- locDates: 各場所の実際の出店可能日（出店しない日は除外済み）。割当はこの日付の中からのみ行うこと。',
+        '- wishes: スタッフごとの希望休(off)・希望出勤(want)の日付リスト。off の日には割り当てず、want の日を優先して割り当てること。',
+        '',
+        '# 出力形式',
+        '出力は必ず以下のJSONオブジェクトのみを返してください。マークダウンコードフェンスや説明文は一切含めないでください。',
         '{',
         '  "changes": [',
-        '    { "staffId": <number>, "locId": <number>, "day": <1-31 number>, "action": "assign" }',
+        '    {"day": 数値, "staffId": 数値, "locId": 数値, "action": "assign"},',
+        '    {"day": 数値, "staffId": 数値, "locId": null, "action": "remove"}',
         '  ],',
-        '  "explanation": "変更内容の日本語での短い説明"',
+        '  "explanation": "変更内容の日本語説明"',
         '}',
         '',
-        '規則:',
-        '- action は現時点 "assign" のみサポート（指定日・指定場所に指定スタッフを割当。既存割当は上書き）。',
+        '# actionの説明',
+        '- assign: その日その場所にそのスタッフを割り当てる（既存割当は上書き）',
+        '- remove: そのスタッフのその日の割当を削除する（locIdはnullでよい）',
+        '',
+        '# 優先ルール（必ず守ること）',
+        '- wishes.off に含まれる日のスタッフは、明示的に名指しされた場合を除き、候補から除外する',
+        '- wishes.want に含まれる日のスタッフを優先的に割り当てる',
+        '- locDates に含まれない日には割り当てを行わない',
+        '',
+        '# 規則',
         '- 該当する変更が無い、または指示が曖昧すぎる場合は changes を空配列にし、explanation で理由を返す。',
         '- staffId と locId は入力に存在するIDのみを使うこと。存在しないIDは絶対に作らない。',
         '- day は 1〜31 の整数。month の日数を超えないこと。',
@@ -128,7 +145,7 @@ exports.aiShiftInstruction = onRequest(
       ].join('\n');
 
       const response = await client.messages.create({
-        model: 'claude-sonnet-4-5-20250929',
+        model: 'claude-sonnet-5',
         max_tokens: 16000,
         system: systemPrompt,
         messages: [{ role: 'user', content: userPrompt }],
@@ -167,17 +184,26 @@ exports.aiShiftInstruction = onRequest(
       const changes = Array.isArray(parsed.changes) ? parsed.changes : [];
       const validStaffIds = new Set(shiftData.staff.map((s) => s.id));
       const validLocIds = new Set(shiftData.locs.map((l) => l.id));
-      const filteredChanges = changes.filter(
-        (c) =>
-          typeof c.staffId === 'number' &&
-          typeof c.locId === 'number' &&
-          typeof c.day === 'number' &&
-          validStaffIds.has(c.staffId) &&
-          validLocIds.has(c.locId) &&
-          c.day >= 1 &&
-          c.day <= 31 &&
-          (c.action || 'assign') === 'assign'
-      ).map((c) => ({ ...c, action: 'assign' }));
+      const filteredChanges = changes
+        .map((c) => ({ ...c, action: c.action || 'assign' }))
+        .filter((c) => {
+          if (typeof c.staffId !== 'number' || !validStaffIds.has(c.staffId)) return false;
+          if (typeof c.day !== 'number' || c.day < 1 || c.day > 31) return false;
+          if (c.action === 'assign') {
+            return typeof c.locId === 'number' && validLocIds.has(c.locId);
+          }
+          if (c.action === 'remove') {
+            // remove は locId 不要（null / 省略可）。指定されている場合は存在するIDのみ許可
+            return c.locId == null || (typeof c.locId === 'number' && validLocIds.has(c.locId));
+          }
+          return false;
+        })
+        .map((c) => ({
+          staffId: c.staffId,
+          day: c.day,
+          locId: c.action === 'remove' ? (c.locId ?? null) : c.locId,
+          action: c.action,
+        }));
 
       res.status(200).json({
         ok: true,
