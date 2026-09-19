@@ -129,10 +129,19 @@ exports.aiShiftInstruction = onRequest(
 
       const response = await client.messages.create({
         model: 'claude-sonnet-4-5-20250929',
-        max_tokens: 2048,
+        max_tokens: 16000,
         system: systemPrompt,
         messages: [{ role: 'user', content: userPrompt }],
       });
+
+      // 出力上限で途中切断された場合は JSON が閉じないため、パース前に明示的なエラーを返す
+      if (response.stop_reason === 'max_tokens') {
+        res.status(200).json({
+          ok: false,
+          error: '指示の内容が多すぎます。月全体ではなく「〇〇さんを△△に多め」など、1つの指示に絞って試してください。',
+        });
+        return;
+      }
 
       const rawText = response.content
         .filter((b) => b.type === 'text')
