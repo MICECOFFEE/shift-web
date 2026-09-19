@@ -1,16 +1,58 @@
 const { onRequest } = require('firebase-functions/v2/https');
-const { defineSecret } = require('firebase-functions/params');
+const { defineString } = require('firebase-functions/params');
 const admin = require('firebase-admin');
 const Anthropic = require('@anthropic-ai/sdk');
+const { oidcFederationProvider } = require('@anthropic-ai/sdk/lib/credentials/oidc-federation');
 
 if (!admin.apps.length) admin.initializeApp();
 
-const ANTHROPIC_API_KEY = defineSecret('ANTHROPIC_API_KEY');
+// --- Anthropic Workload Identity Federation (APIキー不要) ---
+// Cloud Functions にアタッチした GCP サービスアカウントの Google 署名 ID トークンを
+// メタデータサーバーから取得し、SDK が /v1/oauth/token で短命の Anthropic トークンに交換する。
+// 設定値は .env（非シークレット）から読み込む。
+const ANTHROPIC_FEDERATION_RULE_ID = defineString('ANTHROPIC_FEDERATION_RULE_ID');
+const ANTHROPIC_ORGANIZATION_ID = defineString('ANTHROPIC_ORGANIZATION_ID');
+const ANTHROPIC_SERVICE_ACCOUNT_ID = defineString('ANTHROPIC_SERVICE_ACCOUNT_ID');
+const ANTHROPIC_WORKSPACE_ID = defineString('ANTHROPIC_WORKSPACE_ID', { default: '' });
+// 関数を実行する GCP サービスアカウント（Anthropic 側の連携ルールの sub/email と一致させる）
+const GCP_SERVICE_ACCOUNT = 'anthropic-wif@shift-app-920a1.iam.gserviceaccount.com';
+
+const ANTHROPIC_AUDIENCE = 'https://api.anthropic.com';
+const GCP_METADATA_IDENTITY_URL =
+  'http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/identity' +
+  `?audience=${encodeURIComponent(ANTHROPIC_AUDIENCE)}&format=full`;
+
+async function fetchGoogleIdentityToken() {
+  const res = await fetch(GCP_METADATA_IDENTITY_URL, { headers: { 'Metadata-Flavor': 'Google' } });
+  if (!res.ok) {
+    throw new Error(`GCP metadata server returned ${res.status} while fetching identity token`);
+  }
+  return res.text();
+}
+
+// クライアントはインスタンス単位で再利用し、交換済みトークンのキャッシュ/自動更新を SDK に任せる
+let anthropicClient;
+function getAnthropicClient() {
+  if (!anthropicClient) {
+    anthropicClient = new Anthropic({
+      credentials: oidcFederationProvider({
+        identityTokenProvider: fetchGoogleIdentityToken,
+        federationRuleId: ANTHROPIC_FEDERATION_RULE_ID.value(),
+        organizationId: ANTHROPIC_ORGANIZATION_ID.value(),
+        serviceAccountId: ANTHROPIC_SERVICE_ACCOUNT_ID.value(),
+        workspaceId: ANTHROPIC_WORKSPACE_ID.value() || undefined,
+        baseURL: ANTHROPIC_AUDIENCE,
+        fetch,
+      }),
+    });
+  }
+  return anthropicClient;
+}
 
 exports.aiShiftInstruction = onRequest(
   {
     region: 'asia-northeast1',
-    secrets: [ANTHROPIC_API_KEY],
+    serviceAccount: GCP_SERVICE_ACCOUNT,
     timeoutSeconds: 120,
     memory: '512MiB',
     cors: true,
@@ -52,7 +94,7 @@ exports.aiShiftInstruction = onRequest(
         return;
       }
 
-      const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY.value() });
+      const client = getAnthropicClient();
 
       const systemPrompt = [
         'あなたは100g COFFEEの月次シフトを、ユーザーの自然言語指示に従って部分修正するアシスタントです。',
