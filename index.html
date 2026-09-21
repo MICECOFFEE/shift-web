@@ -182,7 +182,7 @@ table.sg{border-collapse:collapse;table-layout:fixed;}
 
 <div id="app-body" style="display:none;">
 <header>
-  <h1>移動販売シフト管理 <span style="font-size:12px;opacity:0.75;font-weight:400;">v4.2026.0920</span></h1>
+  <h1>移動販売シフト管理 <span style="font-size:12px;opacity:0.75;font-weight:400;">v4.2026.0921</span></h1>
   <span class="save-badge" id="save-badge">保存しました</span>
   <button class="btn btn-sm" style="background:#1D9E75;color:white;border-color:#1D9E75;" onclick="exportJSON()" title="全データをJSONファイルに書き出します">全データ保存</button>
   <button class="btn btn-sm" style="background:#BA7517;color:white;border-color:#BA7517;" onclick="document.getElementById('import-json-file').click()" title="JSONファイルからデータを復元します">全データ復元</button>
@@ -472,7 +472,7 @@ table.sg{border-collapse:collapse;table-layout:fixed;}
               git push origin main
             </div>
             <p style="margin-bottom:4px;"><strong>③ バージョン確認</strong></p>
-            <p style="font-size:12px;color:#666;">アプリのヘッダーにバージョン番号（例：v4.2026.0920）が表示されていれば更新済み。<br>変わらない場合はCtrl+Shift+Rで強制リロード。</p>
+            <p style="font-size:12px;color:#666;">アプリのヘッダーにバージョン番号（例：v4.2026.0921）が表示されていれば更新済み。<br>変わらない場合はCtrl+Shift+Rで強制リロード。</p>
           </div>
         </div>
 
@@ -1838,12 +1838,25 @@ function renderResult(keepScroll){
   // 候補日は常にgetEffectiveDatesで動的取得（候補日変更をリアルタイム反映）
   const locDates={};
   locs.forEach(l=>{
-    const cs=getEffectiveDates(l.id,key);
+    const cs=getEffectiveDates(l.id,key); // 除外済みの実効候補日
+    const cands=getCands(l.id,key);       // 登録済み候補日（除外前）
+    const ex=getExcludes(l.id,key);       // 除外日
     if(cs.length){
+      // 実効候補日がある → そのまま使用
       locDates[l.id]=cs;
+    } else if(cands.length>0||ex.length>0){
+      // 候補日または除外日が登録されている → 意図的な設定（空＝出店なし）
+      locDates[l.id]=[];
     } else {
-      // 候補日未設定の場合はlastLocDatesまたはデフォルト曜日から
-      locDates[l.id]=(lastLocDates||{})[l.id]||[];
+      // 何も設定されていない → lastLocDatesまたはデフォルト曜日から
+      const saved=(lastLocDates||{})[l.id];
+      if(saved&&saved.length>0){
+        locDates[l.id]=saved;
+      } else {
+        // デフォルト曜日から生成
+        locDates[l.id]=[];
+        for(let d=1;d<=days;d++){if(l.days.includes(new Date(y,m-1,d).getDay()))locDates[l.id].push(d);}
+      }
     }
     if(!assignments[l.id])assignments[l.id]={};
   });
@@ -4104,7 +4117,7 @@ function downloadViewer(){
 <div id="tab-car" style="display:none;"><div class="card"><div class="ct">号車別場所割当表</div><div class="tw"><table id="ct"></table></div></div></div>
 <div id="tab-cal" style="display:none;"><div class="card"><div id="legend-area" class="legend"></div><div class="cal-grid" id="cal-grid"></div></div></div>
 </div>
-<footer>閲覧専用シフト表 ${ml}<span class="ver-badge">v4.2026.0920</span></footer>
+<footer>閲覧専用シフト表 ${ml}<span class="ver-badge">v4.2026.0921</span></footer>
 <script>
 const staff=${sj},locs=${lj},ld=${JSON.stringify(effectiveLd)},as=${JSON.stringify(lastAssignments)},sc=${JSON.stringify(lastSchedule)},co=${coj},sec=${secj},days=${days},y=${y},m=${m};
 const circledNum=n=>['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩','⑪','⑫'][n-1]||String(n);
