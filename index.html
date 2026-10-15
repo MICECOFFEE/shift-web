@@ -182,7 +182,7 @@ table.sg{border-collapse:collapse;table-layout:fixed;}
 
 <div id="app-body" style="display:none;">
 <header>
-  <h1>移動販売シフト管理 <span style="font-size:12px;opacity:0.75;font-weight:400;">v4.2026.0923</span></h1>
+  <h1>移動販売シフト管理 <span style="font-size:12px;opacity:0.75;font-weight:400;">v4.2026.0924</span></h1>
   <span class="save-badge" id="save-badge">保存しました</span>
   <button class="btn btn-sm" style="background:#1D9E75;color:white;border-color:#1D9E75;" onclick="exportJSON()" title="全データをJSONファイルに書き出します">全データ保存</button>
   <button class="btn btn-sm" style="background:#BA7517;color:white;border-color:#BA7517;" onclick="document.getElementById('import-json-file').click()" title="JSONファイルからデータを復元します">全データ復元</button>
@@ -472,7 +472,7 @@ table.sg{border-collapse:collapse;table-layout:fixed;}
               git push origin main
             </div>
             <p style="margin-bottom:4px;"><strong>③ バージョン確認</strong></p>
-            <p style="font-size:12px;color:#666;">アプリのヘッダーにバージョン番号（例：v4.2026.0923）が表示されていれば更新済み。<br>変わらない場合はCtrl+Shift+Rで強制リロード。</p>
+            <p style="font-size:12px;color:#666;">アプリのヘッダーにバージョン番号（例：v4.2026.0924）が表示されていれば更新済み。<br>変わらない場合はCtrl+Shift+Rで強制リロード。</p>
           </div>
         </div>
 
@@ -604,6 +604,8 @@ function showBiweeklyPanel(locId,mkey,e){
   if(existing)existing.remove();
   const{days,y,m}=getMonthInfo();
   const l=locs.find(x=>x.id===locId);
+  // 保存済みの隔週ルールがあればその曜日、なければ基本曜日
+  const bwDows=l?.biweekly?.dows?.length?l.biweekly.dows:(l?.days||[]);
   const overlay=document.createElement('div');
   overlay.id='cell-overlay';
   overlay.style.cssText='position:fixed;inset:0;z-index:500;';
@@ -616,7 +618,7 @@ function showBiweeklyPanel(locId,mkey,e){
     <div style="font-size:12px;font-weight:500;color:#3C3489;margin-bottom:10px;">隔週設定 — ${l?.name}</div>
     <div class="muted" style="margin-bottom:10px;">対象の曜日と週を選択して一括設定できます</div>
     <div style="margin-bottom:8px;font-size:12px;font-weight:500;">曜日</div>
-    <div style="display:flex;gap:5px;margin-bottom:12px;">${DOW.map((d,i)=>`<div id="bw-dow-${i}" class="dow-chip ${l?.days.includes(i)?'pref':''}" onclick="toggleBwDow(${i})" style="cursor:pointer;">${d}</div>`).join('')}</div>
+    <div style="display:flex;gap:5px;margin-bottom:12px;">${DOW.map((d,i)=>`<div id="bw-dow-${i}" class="dow-chip ${bwDows.includes(i)?'pref':''}" onclick="toggleBwDow(${i})" style="cursor:pointer;">${d}</div>`).join('')}</div>
     <div style="margin-bottom:8px;font-size:12px;font-weight:500;">対象週</div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;">
       ${(()=>{
@@ -625,7 +627,7 @@ function showBiweeklyPanel(locId,mkey,e){
         const{days:dy,y:yr,m:mo}=getMonthInfo();
         const checkedWeeks=new Set();
         // 現在の場所の基本曜日で候補日に含まれている日がどの週かを判定
-        const baseDows=l?.days||[];
+        const baseDows=bwDows;
         curCands.forEach(d=>{
           const dw=new Date(yr,mo-1,d).getDay();
           if(baseDows.includes(dw)){
@@ -633,9 +635,10 @@ function showBiweeklyPanel(locId,mkey,e){
             checkedWeeks.add(wn);
           }
         });
-        // 何も設定がなければデフォルト（第1・3週）
-        const useDefault=checkedWeeks.size===0;
-        return[1,2,3,4,5].map(w=>`<label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;"><input type="checkbox" id="bw-week-${w}" ${(useDefault?(w===1||w===3):checkedWeeks.has(w))?'checked':''}/> 第${w}週</label>`).join('');
+        // 今月の候補日から判定できなければ保存済みルール、それもなければデフォルト（第1・3週）
+        const savedWeeks=l?.biweekly?.weeks?.length?l.biweekly.weeks:[1,3];
+        const useSaved=checkedWeeks.size===0;
+        return[1,2,3,4,5].map(w=>`<label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;"><input type="checkbox" id="bw-week-${w}" ${(useSaved?savedWeeks.includes(w):checkedWeeks.has(w))?'checked':''}/> 第${w}週</label>`).join('');
       })()}
     </div>
     <div style="display:flex;gap:6px;justify-content:flex-end;">
@@ -652,38 +655,44 @@ function toggleBwDow(i){
 }
 // 隔週設定を適用
 function applyBiweekly(locId,mkey){
-  const{days,y,m}=getMonthInfo();
+  const[y,m]=mkey.split('-').map(Number);
   // 選択中の曜日
   const selDows=Array.from({length:7},(_,i)=>i).filter(i=>document.getElementById('bw-dow-'+i)?.classList.contains('pref'));
   // 選択中の週番号
   const selWeeks=[1,2,3,4,5].filter(w=>document.getElementById('bw-week-'+w)?.checked);
   if(!selDows.length){alert('曜日を1つ以上選択してください');return;}
   if(!selWeeks.length){alert('週を1つ以上選択してください');return;}
-  // 対象日を計算（その曜日が月内で何週目か）
-  const targetDays=[];
-  for(let d=1;d<=days;d++){
-    const dw=new Date(y,m-1,d).getDay();
-    if(!selDows.includes(dw))continue;
-    // 同曜日の中で何番目か（第N週）
-    const weekNum=Math.ceil(d/7);
-    if(selWeeks.includes(weekNum))targetDays.push(d);
-  }
-  // 対象日を候補日に追加、それ以外の同曜日を除外
-  let arr=getCands(locId,mkey);
-  let ex=getExcludes(locId,mkey);
-  selDows.forEach(dw=>{
-    // 同曜日の全日を取得
-    for(let d=1;d<=days;d++){
-      if(new Date(y,m-1,d).getDay()!==dw)continue;
-      arr=arr.filter(x=>x!==d);ex=ex.filter(x=>x!==d);
-      if(targetDays.includes(d))arr.push(d);
-      else ex.push(d);
-    }
-  });
-  setCands(locId,mkey,arr);setExcludes(locId,mkey,ex);
+  const count=applyBiweeklyRule(locId,selDows,selWeeks,y,m,mkey);
+  // 隔週ルールを場所に保存（月次更新・自動生成で翌月以降にも適用）
+  const l=locs.find(x=>x.id===locId);
+  if(l)l.biweekly={dows:selDows,weeks:selWeeks};
   document.getElementById('cell-overlay')?.remove();
   saveAll();renderCandidates();
-  showCandMsg(`隔週設定を適用しました（${targetDays.length}日を候補日に設定）`,'ok');
+  showCandMsg(`隔週設定を適用しました（${count}日を候補日に設定）`,'ok');
+}
+// 隔週ルールを指定月に適用（対象曜日のうち対象週は候補日、それ以外は除外日）。候補日にした日数を返す
+function applyBiweeklyRule(locId,dows,weeks,y,m,mkey){
+  const days=new Date(y,m,0).getDate();
+  let arr=getCands(locId,mkey);
+  let ex=getExcludes(locId,mkey);
+  let count=0;
+  for(let d=1;d<=days;d++){
+    if(!dows.includes(new Date(y,m-1,d).getDay()))continue;
+    arr=arr.filter(x=>x!==d);ex=ex.filter(x=>x!==d);
+    // 第N週（同曜日の中で何番目か）
+    if(weeks.includes(Math.ceil(d/7))){arr.push(d);count++;}
+    else ex.push(d);
+  }
+  setCands(locId,mkey,arr);setExcludes(locId,mkey,ex);
+  return count;
+}
+// 保存済みの隔週ルールを全場所に適用
+function applySavedBiweeklyRules(y,m,mkey){
+  locs.forEach(l=>{
+    if(l.biweekly&&l.biweekly.dows?.length&&l.biweekly.weeks?.length){
+      applyBiweeklyRule(l.id,l.biweekly.dows,l.biweekly.weeks,y,m,mkey);
+    }
+  });
 }
 
 /* ===== 希望休 Shift+クリック ===== */
@@ -969,7 +978,8 @@ function normalizeData(d){
       abbr:l.abbr||String(l.name||'').slice(0,3),
       hours:l.hours||'',
       address:l.address||'',
-      detail:l.detail||''
+      detail:l.detail||'',
+      biweekly:(l.biweekly&&Array.isArray(l.biweekly.dows)&&Array.isArray(l.biweekly.weeks))?{dows:l.biweekly.dows.map(Number),weeks:l.biweekly.weeks.map(Number)}:null
     }));
   }
   // prioritiesのキーを数値化
@@ -1172,8 +1182,10 @@ function autoGenCandidates(){
   const{days,y,m,key}=getMonthInfo();let total=0;
   locs.forEach(l=>{
     const arr=[];for(let d=1;d<=days;d++){if(l.days.includes(new Date(y,m-1,d).getDay()))arr.push(d);}
-    setCands(l.id,key,arr);total+=arr.length;
+    setCands(l.id,key,arr);
   });
+  applySavedBiweeklyRules(y,m,key);
+  locs.forEach(l=>{total+=getEffectiveDates(l.id,key).length;});
   saveAll();renderCandidates();showCandMsg(`${locs.length}箇所の候補日を自動生成しました（合計${total}日）`,'ok');
 }
 function copyFromPrevMonth(){
@@ -1194,6 +1206,7 @@ function copyFromPrevMonth(){
     });
     setCands(l.id,key,[...new Set(newArr)]);copied++;
   });
+  applySavedBiweeklyRules(y,m,key);
   saveAll();renderCandidates();
   showCandMsg(copied?`${copied}箇所の前月データを引き継ぎました${missing?'（'+missing+'箇所は前月データなし）':''}`:'前月のデータがありません。先に前月の候補日を登録してください。',copied?'ok':'warn');
 }
@@ -4134,7 +4147,7 @@ function downloadViewer(){
 <div id="tab-car" style="display:none;"><div class="card"><div class="ct">号車別場所割当表</div><div class="tw"><table id="ct"></table></div></div></div>
 <div id="tab-cal" style="display:none;"><div class="card"><div id="legend-area" class="legend"></div><div class="cal-grid" id="cal-grid"></div></div></div>
 </div>
-<footer>閲覧専用シフト表 ${ml}<span class="ver-badge">v4.2026.0923</span></footer>
+<footer>閲覧専用シフト表 ${ml}<span class="ver-badge">v4.2026.0924</span></footer>
 <script>
 const staff=${sj},locs=${lj},ld=${JSON.stringify(effectiveLd)},as=${JSON.stringify(lastAssignments)},sc=${JSON.stringify(lastSchedule)},co=${coj},sec=${secj},days=${days},y=${y},m=${m};
 const circledNum=n=>['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩','⑪','⑫'][n-1]||String(n);
@@ -4505,6 +4518,9 @@ async function executeMonthlyUpdate(){
 
     // 候補日リセット（新月分は空）
     // ※ candidatesは引き継ぎ。必要なら手動で前月引き継ぎボタンを使う
+    // 保存済みの隔週ルールを翌月に適用
+    const[ny,nm]=next.split('-').map(Number);
+    applySavedBiweeklyRules(ny,nm,next);
 
     saveAll();
     renderWishes();
