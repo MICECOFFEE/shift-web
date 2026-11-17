@@ -182,7 +182,7 @@ table.sg{border-collapse:collapse;table-layout:fixed;}
 
 <div id="app-body" style="display:none;">
 <header>
-  <h1>移動販売シフト管理 <span style="font-size:12px;opacity:0.75;font-weight:400;">v4.2026.0924</span></h1>
+  <h1>移動販売シフト管理 <span style="font-size:12px;opacity:0.75;font-weight:400;">v1.0.1</span></h1>
   <span class="save-badge" id="save-badge">保存しました</span>
   <button class="btn btn-sm" style="background:#1D9E75;color:white;border-color:#1D9E75;" onclick="exportJSON()" title="全データをJSONファイルに書き出します">全データ保存</button>
   <button class="btn btn-sm" style="background:#BA7517;color:white;border-color:#BA7517;" onclick="document.getElementById('import-json-file').click()" title="JSONファイルからデータを復元します">全データ復元</button>
@@ -472,7 +472,7 @@ table.sg{border-collapse:collapse;table-layout:fixed;}
               git push origin main
             </div>
             <p style="margin-bottom:4px;"><strong>③ バージョン確認</strong></p>
-            <p style="font-size:12px;color:#666;">アプリのヘッダーにバージョン番号（例：v4.2026.0924）が表示されていれば更新済み。<br>変わらない場合はCtrl+Shift+Rで強制リロード。</p>
+            <p style="font-size:12px;color:#666;">アプリのヘッダーにバージョン番号（例：v1.0.1）が表示されていれば更新済み。<br>変わらない場合はCtrl+Shift+Rで強制リロード。</p>
           </div>
         </div>
 
@@ -532,6 +532,7 @@ table.sg{border-collapse:collapse;table-layout:fixed;}
     <button class="btn btn-primary" id="nbtn" onclick="nextTab()">次へ →</button>
   </div>
 </div>
+<footer id="app-version-footer" style="text-align:center;padding:16px;font-size:11px;color:#999;">v1.0.1 | 2026-11-17 | MICE Coffee Service</footer>
 </div>
 
 <script>
@@ -587,6 +588,9 @@ function candDayState(locId,mkey,day){
 
 // 状態を適用
 function applyCandState(locId,mkey,day,state){
+  // 1日だけ変更して基本曜日が丸ごと消えないよう、先に基本曜日を補完する
+  const[cy,cm]=mkey.split('-').map(Number);
+  ensureBaseCands(locs.find(x=>x.id===locId),cy,cm,mkey);
   let arr=getCands(locId,mkey);
   let ex=getExcludes(locId,mkey);
   // まず両方から削除
@@ -1176,6 +1180,33 @@ function getEffectiveDates(locId,mkey){
   return cs.filter(d=>!ex.includes(d));
 }
 
+/* ===== 基本曜日の候補日補完 =====
+   その月に「基本曜日の候補日」が1日も登録されていない場所は、基本曜日の日を候補日として登録する
+   （除外日は除く）。隔週ルールがあれば続けて適用する。
+   以前は候補日・除外日のどちらか1日でも登録されると基本曜日が丸ごと無視され、
+   候補日が「未設定」表示のまま自動生成でもスタッフが割り当てられなくなっていた（例：烏丸錦小路）。
+   変更があれば true を返す */
+function ensureBaseCands(l,y,m,mkey){
+  if(!l||!Array.isArray(l.days)||!l.days.length)return false;
+  const days=new Date(y,m,0).getDate();
+  const cs=getCands(l.id,mkey),ex=getExcludes(l.id,mkey);
+  const isBase=d=>l.days.includes(new Date(y,m-1,d).getDay());
+  if(cs.some(isBase))return false; // 基本曜日の候補日が登録済み → ユーザー設定を尊重
+  const add=[];
+  for(let d=1;d<=days;d++){if(isBase(d)&&!ex.includes(d)&&!cs.includes(d))add.push(d);}
+  if(!add.length)return false; // 基本曜日がすべて除外済み（意図的に出店なし）
+  setCands(l.id,mkey,[...cs,...add]);
+  if(l.biweekly&&l.biweekly.dows?.length&&l.biweekly.weeks?.length){
+    applyBiweeklyRule(l.id,l.biweekly.dows,l.biweekly.weeks,y,m,mkey);
+  }
+  return true;
+}
+// 全場所に基本曜日の候補日を補完。補完した場所数を返す
+function ensureAllBaseCands(y,m,mkey){
+  let n=0;locs.forEach(l=>{if(ensureBaseCands(l,y,m,mkey))n++;});
+  return n;
+}
+
 /* ===== 候補日ロジック ===== */
 function autoGenCandidates(){
   if(!locs.length){alert('出店場所を先に登録してください');return;}
@@ -1224,6 +1255,8 @@ function dlCandidateCSV(){
 }
 function renderCandidates(){
   const{days,y,m,key}=getMonthInfo();
+  // 基本曜日の候補日が未登録の場所を補完して表示（「未設定」のまま生成されないのを防ぐ）
+  if(ensureAllBaseCands(y,m,key))saveAll();
   document.getElementById('cand-month-label').textContent=`${y}年${m}月`;
   if(!locs.length){
     document.getElementById('cand-loc-tabs').innerHTML='';
@@ -1643,6 +1676,7 @@ function toggleWish(sid,day){
 function generate(){
   const affinityCount=Object.keys(staffLocAffinity).length;
   const{days,y,m,key}=getMonthInfo();lastMonthInfo={days,y,m,key};
+  ensureAllBaseCands(y,m,key); // 基本曜日の候補日が未登録の場所を補完
   const schedule={};staff.forEach(s=>{schedule[s.id]={};});
   const locDates={};
   locs.forEach(l=>{
@@ -4147,7 +4181,7 @@ function downloadViewer(){
 <div id="tab-car" style="display:none;"><div class="card"><div class="ct">号車別場所割当表</div><div class="tw"><table id="ct"></table></div></div></div>
 <div id="tab-cal" style="display:none;"><div class="card"><div id="legend-area" class="legend"></div><div class="cal-grid" id="cal-grid"></div></div></div>
 </div>
-<footer>閲覧専用シフト表 ${ml}<span class="ver-badge">v4.2026.0924</span></footer>
+<footer>閲覧専用シフト表 ${ml}<span class="ver-badge">v1.0.1</span></footer>
 <script>
 const staff=${sj},locs=${lj},ld=${JSON.stringify(effectiveLd)},as=${JSON.stringify(lastAssignments)},sc=${JSON.stringify(lastSchedule)},co=${coj},sec=${secj},days=${days},y=${y},m=${m};
 const circledNum=n=>['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩','⑪','⑫'][n-1]||String(n);
@@ -4521,6 +4555,8 @@ async function executeMonthlyUpdate(){
     // 保存済みの隔週ルールを翌月に適用
     const[ny,nm]=next.split('-').map(Number);
     applySavedBiweeklyRules(ny,nm,next);
+    // 基本曜日の候補日が未登録の場所（隔週設定なしの場所など）を補完
+    ensureAllBaseCands(ny,nm,next);
 
     saveAll();
     renderWishes();
